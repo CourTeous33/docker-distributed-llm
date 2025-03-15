@@ -1,0 +1,133 @@
+version: '3.8'
+
+services:
+  # Frontend - NextJS application
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: frontend
+    restart: unless-stopped
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    depends_on:
+      - backend
+    networks:
+      - app-network
+
+  # Backend - API service that manages worker interactions
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: backend
+    restart: unless-stopped
+    volumes:
+      - ./backend:/app
+    environment:
+      - WORKER_URLS=http://worker1:5000,http://worker2:5000,http://worker3:5000,http://worker4:5000,http://worker5:5000
+    networks:
+      - app-network
+
+  # Workers - Small language model containers (1-5)
+  worker1:
+    build:
+      context: ./worker
+      dockerfile: Dockerfile
+    container_name: worker1
+    restart: unless-stopped
+    volumes:
+      - ./worker:/app
+      - worker1_model_data:/app/model_data
+    environment:
+      - WORKER_ID=1
+    networks:
+      - app-network
+
+  worker2:
+    build:
+      context: ./worker
+      dockerfile: Dockerfile
+    container_name: worker2
+    restart: unless-stopped
+    volumes:
+      - ./worker:/app
+      - worker2_model_data:/app/model_data
+    environment:
+      - WORKER_ID=2
+    networks:
+      - app-network
+
+  worker3:
+    build:
+      context: ./worker
+      dockerfile: Dockerfile
+    container_name: worker3
+    restart: unless-stopped
+    volumes:
+      - ./worker:/app
+      - worker3_model_data:/app/model_data
+    environment:
+      - WORKER_ID=3
+    networks:
+      - app-network
+
+  worker4:
+    build:
+      context: ./worker
+      dockerfile: Dockerfile
+    container_name: worker4
+    restart: unless-stopped
+    volumes:
+      - ./worker:/app
+      - worker4_model_data:/app/model_data
+    environment:
+      - WORKER_ID=4
+    networks:
+      - app-network
+
+  worker5:
+    build:
+      context: ./worker
+      dockerfile: Dockerfile
+    container_name: worker5
+    restart: unless-stopped
+    volumes:
+      - ./worker:/app
+      - worker5_model_data:/app/model_data
+    environment:
+      - WORKER_ID=5
+    networks:
+      - app-network
+
+  # Nginx - Reverse proxy
+  nginx:
+    image: nginx:alpine
+    container_name: nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/conf:/etc/nginx/conf.d
+      - ./nginx/certs:/etc/nginx/certs
+      - ./nginx/logs:/var/log/nginx
+    depends_on:
+      - frontend
+      - backend
+    networks:
+      - app-network
+
+# Networks
+networks:
+  app-network:
+    driver: bridge
+
+# Volumes for persistent model data
+volumes:
+  worker1_model_data:
+  worker2_model_data:
+  worker3_model_data:
+  worker4_model_data:
+  worker5_model_data:
