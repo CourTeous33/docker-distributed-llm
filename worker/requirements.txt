@@ -1,5 +1,1 @@
-flask==2.3.3
-accelerate==0.23.0
-bitsandbytes==0.41.1
-sentencepiece==0.1.99
-protobuf==4.24.3
+flask==3.0.0 

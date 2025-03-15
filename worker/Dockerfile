@@ -2,15 +2,14 @@ FROM python:3.9-slim
 
 WORKDIR /app
 
-# Install dependencies
+# Copy only the requirements file first
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy the rest of the application
-COPY . .
+# Install dependencies
+RUN pip install -r requirements.txt
 
-# Make directory for model data
-RUN mkdir -p /app/model_data
+# Copy only the necessary application files
+COPY worker.py .
 
 # Expose the port
 EXPOSE 5000

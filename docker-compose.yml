@@ -2,14 +2,14 @@ version: '3.8'
 
 services:
   # Frontend - NextJS application
-  frontend:
+  webui:
     build:
-      context: ./frontend
+      context: ./webui
       dockerfile: Dockerfile
-    container_name: frontend
+    container_name: webui
     restart: unless-stopped
     volumes:
-      - ./frontend:/app
+      - ./webui:/app
       - /app/node_modules
     depends_on:
       - backend
@@ -39,7 +39,6 @@ services:
     restart: unless-stopped
     volumes:
       - ./worker:/app
-      - worker1_model_data:/app/model_data
     environment:
       - WORKER_ID=1
     networks:
@@ -53,7 +52,6 @@ services:
     restart: unless-stopped
     volumes:
       - ./worker:/app
-      - worker2_model_data:/app/model_data
     environment:
       - WORKER_ID=2
     networks:
@@ -67,7 +65,6 @@ services:
     restart: unless-stopped
     volumes:
       - ./worker:/app
-      - worker3_model_data:/app/model_data
     environment:
       - WORKER_ID=3
     networks:
@@ -81,7 +78,6 @@ services:
     restart: unless-stopped
     volumes:
       - ./worker:/app
-      - worker4_model_data:/app/model_data
     environment:
       - WORKER_ID=4
     networks:
@@ -95,7 +91,6 @@ services:
     restart: unless-stopped
     volumes:
       - ./worker:/app
-      - worker5_model_data:/app/model_data
     environment:
       - WORKER_ID=5
     networks:
@@ -114,7 +109,7 @@ services:
       - ./nginx/certs:/etc/nginx/certs
       - ./nginx/logs:/var/log/nginx
     depends_on:
-      - frontend
+      - webui
       - backend
     networks:
       - app-network
@@ -122,6 +117,7 @@ services:
 # Networks
 networks:
   app-network:
+    name: app-network
     driver: bridge
 
 # Volumes for persistent model data

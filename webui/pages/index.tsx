@@ -5,14 +5,7 @@ import React from 'react';
 interface WorkerStatus {
   worker_id: number;
   status: string;
-  model_name: string;
   is_available: boolean;
-}
-
-interface GenerationResult {
-  text: string;
-  worker_id: number;
-  processing_time: number;
 }
 
 export default function Home() {
@@ -56,7 +49,6 @@ export default function Home() {
                   }`}
                 >
                   <div className="font-medium">Worker {worker.worker_id}</div>
-                  <div className="text-sm">{worker.model_name}</div>
                   <div className="text-xs">{worker.status}</div>
                 </div>
               ))}
