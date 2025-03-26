@@ -37,8 +37,6 @@ services:
       dockerfile: Dockerfile
     container_name: worker1
     restart: unless-stopped
-    volumes:
-      - ./worker:/app
     environment:
       - WORKER_ID=1
     networks:
@@ -50,8 +48,6 @@ services:
       dockerfile: Dockerfile
     container_name: worker2
     restart: unless-stopped
-    volumes:
-      - ./worker:/app
     environment:
       - WORKER_ID=2
     networks:
@@ -63,8 +59,6 @@ services:
       dockerfile: Dockerfile
     container_name: worker3
     restart: unless-stopped
-    volumes:
-      - ./worker:/app
     environment:
       - WORKER_ID=3
     networks:
@@ -76,8 +70,6 @@ services:
       dockerfile: Dockerfile
     container_name: worker4
     restart: unless-stopped
-    volumes:
-      - ./worker:/app
     environment:
       - WORKER_ID=4
     networks:
@@ -89,8 +81,6 @@ services:
       dockerfile: Dockerfile
     container_name: worker5
     restart: unless-stopped
-    volumes:
-      - ./worker:/app
     environment:
       - WORKER_ID=5
     networks:

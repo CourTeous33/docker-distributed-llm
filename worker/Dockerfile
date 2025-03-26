@@ -9,7 +9,7 @@ COPY requirements.txt .
 RUN pip install -r requirements.txt
 
 # Copy only the necessary application files
-COPY worker.py .
+COPY . .
 
 # Expose the port
 EXPOSE 5000
