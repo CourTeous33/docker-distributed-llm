@@ -15,34 +15,22 @@ RUN apt-get update && apt-get install -y \
 # Set working directory
 WORKDIR /app
 
-# Clone distributed-llama
-RUN git clone https://github.com/b4rtaz/distributed-llama.git
-WORKDIR /app/distributed-llama
-
-# Build the distributed-llama binaries
-RUN make dllama
-
-# Install Python dependencies for Flask API
-WORKDIR /app
+# Copy requirements and install dependencies
 COPY requirements.txt /app/
-RUN pip3 install --no-cache-dir -r /app/requirements.txt
+RUN pip3 install --no-cache-dir -r requirements.txt
 
-# Copy the worker wrapper and other necessary files
-COPY worker.py /app/
-COPY worker_wrapper.py /app/
+# Clone and build distributed-llama
+RUN git clone https://github.com/b4rtaz/distributed-llama.git /app/distributed-llama
+WORKDIR /app/distributed-llama
+RUN make dllama
+WORKDIR /app
 
-# Set environment variables
-ENV WORKER_ID=1
-ENV DLLAMA_WORKER_PORT=9998
-ENV DLLAMA_API_PORT=5000
+# Copy worker files
+COPY . /app/
 
-# Expose ports (Flask API port and dllama worker port)
+# Expose ports
 EXPOSE 5000
 EXPOSE 9998
 
-# Health check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
-    CMD curl -f http://localhost:5000/status || exit 1
-
-# Set entrypoint
-CMD ["python3", "/app/worker_wrapper.py"]
+# Start the Flask server
+CMD ["python3", "worker_wrapper.py"]

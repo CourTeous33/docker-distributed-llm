@@ -42,6 +42,16 @@ class DistributedLlamaManager:
         
         if not os.path.exists(tokenizer_path):
             logger.warning(f"Tokenizer file not found at {tokenizer_path}")
+        # Ensure distributed-llama exists
+        if not os.path.exists("/app/distributed-llama"):
+            logger.info("Cloning distributed-llama repository...")
+            subprocess.run(["git", "clone", "https://github.com/b4rtaz/distributed-llama.git", "/app/distributed-llama"], check=True)
+            
+            # Build binaries
+            logger.info("Building dllama...")
+            subprocess.run(["make", "dllama"], cwd="/app/distributed-llama", check=True)
+            logger.info("Building dllama-api...")
+            subprocess.run(["make", "dllama-api"], cwd="/app/distributed-llama", check=True)
     
     async def start_inference_server(self) -> bool:
         """
@@ -55,19 +65,10 @@ class DistributedLlamaManager:
                 logger.info("Inference server is already running")
                 return True
             
-            worker_ips = []
-            
-            # Extract IP:port from worker URLs for distributed-llama
-            for url in self.worker_urls:
-                # Convert http://worker1:5000 to worker1:9998
-                parts = url.replace('http://', '').split(':')
-                worker_ips.append(f"{parts[0]}:9998")
-            
-            workers_arg = " ".join(worker_ips)
             
             cmd = [
-                "./dllama", 
-                "inference-server",
+                "/app/distributed-llama/dllama", 
+                "inference",
                 "--model", self.model_path,
                 "--tokenizer", self.tokenizer_path,
                 "--buffer-float-type", "q80",
@@ -75,12 +76,15 @@ class DistributedLlamaManager:
                 "--nthreads", "4", 
                 "--port", "9999",
             ]
+
+            worker_ips = ["worker1:9998", "worker2:9998", "worker3:9998", "worker4:9998"]
+            cmd.append("--workers")
+            cmd.extend(worker_ips)  # Add each worker as a separate argument
             
-            # Only add workers if there are any
-            if workers_arg:
-                cmd.extend(["--workers", workers_arg])
+           
             
             logger.info(f"Starting distributed-llama server with command: {' '.join(cmd)}")
+            # Rest of the method remains the same
             
             try:
                 self.process = subprocess.Popen(
@@ -223,60 +227,41 @@ class DistributedLlamaManager:
             await self.start_inference_server()
         
         try:
-            # This would use the dllama-api in a real implementation
-            # For now, we'll use the dllama CLI directly
-            worker_ips = []
-            
-            # Extract IP:port from worker URLs for distributed-llama
-            for url in self.worker_urls:
-                # Convert http://worker1:5000 to worker1:9998
-                parts = url.replace('http://', '').split(':')
-                worker_ips.append(f"{parts[0]}:9998")
-            
-            workers_arg = " ".join(worker_ips)
-            
+            # Use the dllama-api to interact with the already running server
             cmd = [
-                "./dllama", 
-                "inference",
-                "--model", self.model_path,
-                "--tokenizer", self.tokenizer_path,
-                "--buffer-float-type", "q80",
+                "/app/distributed-llama/dllama-api",
+                "generate",
+                "--port", "9999",  # This should match the port in start_inference_server
                 "--prompt", prompt,
-                "--steps", str(max_tokens),
-                "--nthreads", "4"
+                "--max-tokens", str(max_tokens)
             ]
-            
-            # Only add workers if there are any
-            if workers_arg:
-                cmd.extend(["--workers", workers_arg])
             
             logger.info(f"Generating text with command: {' '.join(cmd)}")
             
-            process = subprocess.Popen(
+            result = subprocess.run(
                 cmd, 
                 cwd="/app/distributed-llama",
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                text=True
+                capture_output=True,
+                text=True,
+                check=False
             )
             
-            stdout, stderr = process.communicate()
+            logger.info(f"Command exit code: {result.returncode}")
             
-            if process.returncode != 0:
-                logger.error(f"Error generating text: {stderr}")
-                raise RuntimeError(f"Error generating text: {stderr}")
+            if result.returncode != 0:
+                logger.error(f"Command stderr: {result.stderr}")
+                return f"Error generating text: {result.stderr}"
             
             # Parse and clean the output
-            output = stdout.strip()
+            output = result.stdout.strip()
             # Remove the prompt from the output if it appears
             if output.startswith(prompt):
                 output = output[len(prompt):].strip()
-                
-            return output
             
+            return output
         except Exception as e:
             logger.exception("Error during text generation")
-            raise RuntimeError(f"Text generation failed: {str(e)}")
+            return f"Exception during text generation: {str(e)}"
     
     async def get_system_info(self) -> Dict[str, Any]:
         """

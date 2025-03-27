@@ -21,6 +21,8 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
+      args:
+      - BUILDKIT_PROGRESS=plain  # Shows more build details
     container_name: backend
     restart: unless-stopped
     volumes:

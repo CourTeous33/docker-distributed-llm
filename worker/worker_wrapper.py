@@ -66,21 +66,19 @@ def monitor_resource_usage():
 
 def start_dllama_worker():
     """Start the distributed-llama worker process"""
-    global dllama_worker_process, worker_status
+    global dllama_worker_process
     
     cmd = [
-        "./dllama", 
+        "/app/distributed-llama/dllama", 
         "worker",
-        "--port", str(dllama_worker_port),
+        "--port", "9998",
         "--nthreads", "4"
     ]
     
     logger.info(f"Starting distributed-llama worker with command: {' '.join(cmd)}")
     
-    # Set the working directory to the distributed-llama folder
     dllama_worker_process = subprocess.Popen(
         cmd, 
-        cwd="/app/distributed-llama",
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         text=True
