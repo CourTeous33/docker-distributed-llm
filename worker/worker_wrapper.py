@@ -69,10 +69,10 @@ def start_dllama_worker():
     global dllama_worker_process
     
     cmd = [
-        "/app/distributed-llama/dllama", 
+        "/dllama-app/distributed-llama/dllama", 
         "worker",
         "--port", "9998",
-        "--nthreads", "4"
+        "--nthreads", "1"
     ]
     
     logger.info(f"Starting distributed-llama worker with command: {' '.join(cmd)}")

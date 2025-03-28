@@ -15,18 +15,24 @@ RUN apt-get update && apt-get install -y \
 # Set working directory
 WORKDIR /app
 
+# Copy worker files
+COPY . /app/
+
 # Copy requirements and install dependencies
 COPY requirements.txt /app/
+COPY ../models/. /models/
 RUN pip3 install --no-cache-dir -r requirements.txt
 
 # Clone and build distributed-llama
-RUN git clone https://github.com/b4rtaz/distributed-llama.git /app/distributed-llama
-WORKDIR /app/distributed-llama
+RUN echo "Getting distributed-llama..."
+RUN git clone https://github.com/b4rtaz/distributed-llama.git /dllama-app/distributed-llama
+RUN echo "Git clone complete"
+WORKDIR /dllama-app/distributed-llama
+RUN echo "Building dllama..."
 RUN make dllama
+RUN echo "Build complete"
 WORKDIR /app
 
-# Copy worker files
-COPY . /app/
 
 # Expose ports
 EXPOSE 5000

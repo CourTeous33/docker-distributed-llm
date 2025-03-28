@@ -100,9 +100,10 @@ class DistributedLlamaManager:
                 
                 if self.process.poll() is not None:
                     stderr = self.process.stderr.read()
-                    logger.error(f"Failed to start distributed-llama server: {stderr}")
-                    raise RuntimeError(f"Failed to start distributed-llama server: {stderr}")
-                
+                    if stderr is None:
+                        logger.error(f"Failed to start distributed-llama server: {stderr}")
+                        raise RuntimeError(f"Failed to start distributed-llama server: {stderr}")
+                    
                 # Set up a thread to log output
                 def log_output():
                     for line in self.process.stdout:
@@ -227,13 +228,17 @@ class DistributedLlamaManager:
             await self.start_inference_server()
         
         try:
-            # Use the dllama-api to interact with the already running server
+            # Use dllama inference command to generate text
             cmd = [
-                "/app/distributed-llama/dllama-api",
-                "generate",
-                "--port", "9999",  # This should match the port in start_inference_server
+                "/app/distributed-llama/dllama", "inference",
+                "--model", "/models/llama3_2_1b_instruct_q40/dllama_model_llama3_2_1b_instruct_q40.m",
+                "--tokenizer", "/models/llama3_2_1b_instruct_q40/dllama_tokenizer_llama3_2_1b_instruct_q40.t",
+                "--buffer-float-type", "q80",
                 "--prompt", prompt,
-                "--max-tokens", str(max_tokens)
+                "--steps", str(max_tokens),
+                "--nthreads", "2",
+                "--workers", "worker1:9998",
+                "--debug"
             ]
             
             logger.info(f"Generating text with command: {' '.join(cmd)}")
@@ -249,7 +254,7 @@ class DistributedLlamaManager:
             logger.info(f"Command exit code: {result.returncode}")
             
             if result.returncode != 0:
-                logger.error(f"Command stderr: {result.stderr}")
+                logger.error(f"Command stderr: {result.stdout}")
                 return f"Error generating text: {result.stderr}"
             
             # Parse and clean the output

@@ -85,7 +85,6 @@ async def get_workers_status():
     tasks = []
     
     for i, url in enumerate(worker_urls):
-        print(f"Creating status check task for worker {i+1} at {url}")
         tasks.append(get_worker_status(i + 1, url))
     
     print(f"Gathering results from {len(tasks)} worker status checks")
@@ -95,10 +94,8 @@ async def get_workers_status():
     processed_results = []
     for i, r in enumerate(results):
         if isinstance(r, Exception):
-            print(f"Worker {i+1} check resulted in exception: {str(r)}")
             processed_results.append({"worker_id": i+1, "status": "error", "is_available": False})
         else:
-            print(f"Worker {i+1} check completed successfully: {r}")
             processed_results.append(r)
             
     print(f"Completed all worker status checks. Results: {processed_results}")
@@ -108,14 +105,11 @@ async def get_workers_status():
 
 async def get_worker_status(worker_id: int, url: str) -> dict:
     """Get status of a specific worker"""
-    print(f"Checking status of worker {worker_id} at {url}")
     try:
         response = await client.get(f"{url}/status")
-        print(f"Worker {worker_id} response status code: {response.status_code}")
         if response.status_code == 200:
             return response.json()
         else:
-            print(f"Worker {worker_id} returned error status code {response.status_code}")
             return {
                 "worker_id": worker_id,
                 "status": f"error: {response.status_code}",
@@ -220,7 +214,7 @@ async def log_requests(request: Request, call_next):
     start_time = time.time()
     response = await call_next(request)
     process_time = (time.time() - start_time) * 1000
-    logger.info(f"Request: {request.method} {request.url.path} - Completed in {process_time:.2f}ms")
+    # logger.info(f"Request: {request.method} {request.url.path} - Completed in {process_time:.2f}ms")
     return response
 
 # Startup event

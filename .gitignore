@@ -9,6 +9,8 @@ docker-compose.override.yml
 .env.test.local
 .env.production.local
 
+./models/
+./backend/distributed-llama
 # Node.js (Frontend)
 node_modules/
 npm-debug.log*
