@@ -35,6 +35,7 @@ class DistributedLlamaManager:
         self.worker_statuses = {}
         self.lock = threading.Lock()
         self.client = httpx.AsyncClient(timeout=30.0)
+        self.output_buffer = []
         
         # Check if model and tokenizer exist
         if not os.path.exists(model_path):
@@ -53,41 +54,39 @@ class DistributedLlamaManager:
             logger.info("Building dllama-api...")
             subprocess.run(["make", "dllama-api"], cwd="/app/distributed-llama", check=True)
     
-    async def start_inference_server(self) -> bool:
+    async def start_inference_server(self, prompt: str = None) -> Tuple[bool, str]:
         """
         Start the distributed-llama inference server
         
+        Args:
+            prompt: Optional prompt to initialize the server with
+            
         Returns:
-            bool: True if the server started successfully
+            tuple: (success: bool, output: str) - success status and server output
         """
         with self.lock:
             if self.process and self.process.poll() is None:
                 logger.info("Inference server is already running")
-                return True
-            
+                return True, "Server already running"
+
+            # Validate and set prompt
+            init_prompt = str(prompt) if prompt else "Initializing server"
             
             cmd = [
                 "/app/distributed-llama/dllama", 
                 "inference",
-                "--model", "/models/llama3_2_1b_instruct_q40/dllama_model_llama3_2_1b_instruct_q40.m",
-                "--tokenizer", "/models/llama3_2_1b_instruct_q40/dllama_tokenizer_llama3_2_1b_instruct_q40.t",
+                "--model", self.model_path,
+                "--tokenizer", self.tokenizer_path,
                 "--buffer-float-type", "q80",
                 "--max-seq-len", "2048",
-                "--prompt", "Hi there how are you?",
+                "--prompt", init_prompt,
                 "--steps", "10",
                 "--nthreads", "1", 
                 "--port", "9999",
+                "--workers", "172.20.0.11:9998", "172.20.0.12:9998", "172.20.0.13:9998"
             ]
-
-            # worker_ips = ["172.20.0.11:9998", "172.20.0.12:9998", "172.20.0.13:9998", "172.20.0.14:9998", "172.20.0.15:9998"]
-            worker_ips = ["172.20.0.11:9998", "172.20.0.12:9998", "172.20.0.13:9998"]
-            cmd.append("--workers")
-            cmd.extend(worker_ips)  # Add each worker as a separate argument
-            
-           
             
             logger.info(f"Starting distributed-llama server with command: {' '.join(cmd)}")
-            # Rest of the method remains the same
             
             try:
                 self.process = subprocess.Popen(
@@ -103,26 +102,36 @@ class DistributedLlamaManager:
                 
                 if self.process.poll() is not None:
                     stderr = self.process.stderr.read()
-                    if stderr is None:
-                        logger.error(f"Failed to start distributed-llama server: {stderr}")
-                        raise RuntimeError(f"Failed to start distributed-llama server: {stderr}")
-                    
-                # Set up a thread to log output
-                def log_output():
+                    error_msg = f"Failed to start distributed-llama server: {stderr}"
+                    logger.error(error_msg)
+                    return False, error_msg
+                
+                # Set up output capture
+                self.output_buffer = []
+                
+                def capture_output():
                     for line in self.process.stdout:
-                        logger.info(f"DLlama server output: {line.strip()}")
+                        output = line.strip()
+                        logger.info(f"DLlama server output: {output}")
+                        self.output_buffer.append(output)
                     for line in self.process.stderr:
-                        logger.error(f"DLlama server error: {line.strip()}")
+                        error = line.strip()
+                        logger.error(f"DLlama server error: {error}")
+                        self.output_buffer.append(f"ERROR: {error}")
                 
-                threading.Thread(target=log_output, daemon=True).start()
+                threading.Thread(target=capture_output, daemon=True).start()
                 
+                # Wait briefly to capture initial output
+                await asyncio.sleep(1)
+                output_text = '\n'.join(self.output_buffer)
                 logger.info("Distributed-llama server started successfully")
-                return True
+                return True, output_text
                 
             except Exception as e:
-                logger.exception("Error starting distributed-llama server")
-                raise
-    
+                error_msg = f"Error starting distributed-llama server: {str(e)}"
+                logger.exception(error_msg)
+                return False, error_msg
+
     async def stop_inference_server(self) -> bool:
         """
         Stop the distributed-llama server

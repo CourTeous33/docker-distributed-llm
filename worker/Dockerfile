@@ -20,7 +20,7 @@ COPY . /app/
 
 # Copy requirements and install dependencies
 COPY requirements.txt /app/
-COPY ../models/. /models/
+#COPY models/. /models/
 RUN pip3 install --no-cache-dir -r requirements.txt
 
 # Clone and build distributed-llama

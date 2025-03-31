@@ -4,7 +4,7 @@ This file extends the original FastAPI backend to integrate with
 distributed-llama for distributed inference across worker nodes.
 """
 
-from fastapi import FastAPI, HTTPException, BackgroundTasks, Depends, Request
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 import httpx
 import os
@@ -31,135 +31,102 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
     allow_credentials=True,
-    allow_methods=["*"],
+    allow_methods=["*"], 
     allow_headers=["*"],
 )
 
-# Get worker URLs from environment variable
-worker_urls = os.environ.get("WORKER_URLS", "").split(",")
-if not worker_urls or worker_urls[0] == "":
-    worker_urls = [
-        "http://worker1:5000",
-        "http://worker2:5000",
-        "http://worker3:5000",
-        "http://worker4:5000",
-        "http://worker5:5000"
-    ]
+worker_urls = [
+    "http://worker1:5000",
+    "http://worker2:5000",
+    "http://worker3:5000"
+]
 
-# Get model paths from environment variables
-model_path = os.environ.get("DLLAMA_MODEL_PATH", "/models/dllama_model_meta-llama-3-8b_q40.m")
-tokenizer_path = os.environ.get("DLLAMA_TOKENIZER_PATH", "/models/dllama_tokenizer_llama3.t")
+# Initialize manager
+dllama_manager = DistributedLlamaManager(
+    model_path="/models/llama3_2_1b_instruct_q40/dllama_model_llama3_2_1b_instruct_q40.m",
+    tokenizer_path="/models/llama3_2_1b_instruct_q40/dllama_tokenizer_llama3_2_1b_instruct_q40.t",
+    worker_urls=worker_urls
+)
 
-# Initialize the distributed-llama manager
-dllama_manager = DistributedLlamaManager(model_path, tokenizer_path, worker_urls)
-
-# Client for making requests to workers
 client = httpx.AsyncClient(timeout=60.0)
 
-# Define request models
-class GenerateTextRequest(BaseModel):
+class GenerateRequest(BaseModel):
     prompt: str
     max_tokens: int = 256
-    temperature: float = 0.7
-    top_p: float = 0.9
 
-# Define response models
-class GenerateTextResponse(BaseModel):
+class GenerateResponse(BaseModel):
+    success: bool
     generated_text: str
-    prompt: str
     generation_time: float
-    total_tokens: int
 
-# Health check endpoint
-@app.get("/")
-async def read_root():
-    """Root endpoint for health check"""
-    return {"message": "LLM Backend Service with Distributed-Llama", "workers": len(worker_urls)}
+class WorkerStatus(BaseModel):
+    worker_id: int
+    status: str
+    is_available: bool
 
-# Worker status endpoint
+class SystemStatus(BaseModel):
+    server_status: str
+    total_workers: int
+    available_workers: int
+    model_path: str
+    tokenizer_path: str
+
 @app.get("/workers/status")
 async def get_workers_status():
-    """Get status of all worker LLMs"""
-    print("Starting worker status check for all workers")
-    
-    tasks = []
-    
-    for i, url in enumerate(worker_urls):
-        tasks.append(get_worker_status(i + 1, url))
-    
-    print(f"Gathering results from {len(tasks)} worker status checks")
-
-    results = await asyncio.gather(*tasks, return_exceptions=True)
-    
-    processed_results = []
-    for i, r in enumerate(results):
-        if isinstance(r, Exception):
-            processed_results.append({"worker_id": i+1, "status": "error", "is_available": False})
-        else:
-            processed_results.append(r)
-            
-    print(f"Completed all worker status checks. Results: {processed_results}")
-    return processed_results
-
-
-
-async def get_worker_status(worker_id: int, url: str) -> dict:
-    """Get status of a specific worker"""
+    """Get status of all workers"""
     try:
-        response = await client.get(f"{url}/status")
-        if response.status_code == 200:
-            return response.json()
-        else:
-            return {
-                "worker_id": worker_id,
-                "status": f"error: {response.status_code}",
-                "is_available": False
-            }
+        status = await dllama_manager.check_worker_status()
+        return [WorkerStatus(
+            worker_id=k,
+            status=v.get("status", "unknown"),
+            is_available=v.get("is_available", False)
+        ) for k, v in status.items()]
     except Exception as e:
-        print(f"Error checking worker {worker_id} status: {str(e)}")
-        return {
-            "worker_id": worker_id,
-            "status": f"error: {str(e)}",
-            "is_available": False
-        }
+        raise HTTPException(500, str(e))
 
-# System status endpoint
 @app.get("/system/status")
 async def get_system_status():
-    """Get comprehensive system status"""
+    """Get overall system status"""
     try:
-        return await dllama_manager.get_system_info()
-    except Exception as e:
-        logger.exception("Error getting system status")
-        raise HTTPException(status_code=500, detail=str(e))
-
-# Text generation endpoint
-@app.post("/generate", response_model=GenerateTextResponse)
-async def generate_text(request: GenerateTextRequest):
-    """Generate text using the distributed-llama model"""
-    try:
-        start_time = time.time()
-        
-        # Generate text
-        generated_text = await dllama_manager.generate_text(
-            prompt=request.prompt,
-            max_tokens=request.max_tokens
+        info = await dllama_manager.get_system_info()
+        return SystemStatus(
+            server_status=info["server_status"],
+            total_workers=info["total_workers"],
+            available_workers=info["available_workers"],
+            model_path=info["model_path"],
+            tokenizer_path=info["tokenizer_path"]
         )
-        
+    except Exception as e:
+        raise HTTPException(500, str(e))
+
+@app.post("/generate", response_model=GenerateResponse)
+async def generate_text(request: GenerateRequest):
+    """Generate text by starting inference server with prompt"""
+    start_time = time.time()
+    
+    try:
+        success, output = await dllama_manager.start_inference_server(request.prompt)
         generation_time = time.time() - start_time
         
-        # Simple token count (approximation)
-        total_tokens = len(request.prompt.split()) + len(generated_text.split())
+        if not success:
+            return GenerateResponse(
+                success=False,
+                generated_text=f"Error: {output}",
+                generation_time=generation_time
+            )
+            
+        # Extract generated text from server output
+        generated_text = output.split(request.prompt)[-1].strip()
         
-        return GenerateTextResponse(
+        return GenerateResponse(
+            success=True,
             generated_text=generated_text,
-            prompt=request.prompt,
-            generation_time=generation_time,
-            total_tokens=total_tokens
+            generation_time=generation_time
         )
+        
     except Exception as e:
-        logger.exception("Error generating text")
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.exception("Generation failed")
+        raise HTTPException(500, str(e))
 
 # Worker restart endpoint
 @app.post("/workers/restart")
@@ -222,13 +189,7 @@ async def log_requests(request: Request, call_next):
 async def startup_event():
     """Startup event handler"""
     logger.info("Starting up the backend service")
-    
-    # Start the distributed-llama server
-    try:
-        await dllama_manager.start_inference_server()
-    except Exception as e:
-        logger.error(f"Error starting distributed-llama server: {e}")
-        # Continue anyway, we'll try to start it again when needed
+    logger.info("Inference server will start on first generation request")
 
 # Shutdown event
 @app.on_event("shutdown")

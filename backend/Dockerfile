@@ -13,7 +13,7 @@ RUN apt-get update && apt-get install -y \
 
 WORKDIR /app
 
-COPY ../models/. /models/
+#COPY ../models/. /models/
 COPY requirements.txt /app/
 RUN pip3 install --no-cache-dir -r /app/requirements.txt
 

@@ -5,16 +5,15 @@ export default function TextGenerator() {
   const [prompt, setPrompt] = useState('');
   const [generatedText, setGeneratedText] = useState('');
   const [loading, setLoading] = useState(false);
+  const [completed, setCompleted] = useState(0);
   const [error, setError] = useState('');
   const [generationTime, setGenerationTime] = useState(0);
   const [tokenCount, setTokenCount] = useState(0);
-  const [maxTokens, setMaxTokens] = useState(256);
   const [workers, setWorkers] = useState([]);
-  
-  // Fetch worker status on component mount
+  const [maxTokens, setMaxTokens] = useState(256);
+
   useEffect(() => {
     fetchWorkerStatus();
-    // Refresh status every 10 seconds
     const interval = setInterval(fetchWorkerStatus, 10000);
     return () => clearInterval(interval);
   }, []);
@@ -28,36 +27,70 @@ export default function TextGenerator() {
     }
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setLoading(true);
-    setError('');
-    setGeneratedText('');
-    
-    try {
-      const response = await axios.post('/api/generate', {
-        prompt,
-        max_tokens: maxTokens
-      });
-      
-      setGeneratedText(response.data.generated_text);
-      setGenerationTime(response.data.generation_time);
-      setTokenCount(response.data.total_tokens);
-    } catch (err) {
-      console.error('Error generating text:', err);
-      setError(err.response?.data?.detail || 'Failed to generate text. Please try again.');
-    } finally {
-      setLoading(false);
-    }
-  };
-  
   const handleReset = () => {
     setPrompt('');
     setGeneratedText('');
     setError('');
     setGenerationTime(0);
     setTokenCount(0);
+    setCompleted(0);
   };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!prompt.trim()) return;
+
+    setLoading(true);
+    setCompleted(0);
+    setError('');
+    setGeneratedText('Starting generation... (Please wait, this may take several minutes)');
+
+    try {
+      const response = await axios.post('/api/generate', {
+        prompt,
+        max_tokens: maxTokens
+      }, {
+        timeout: 300000, // 5 minute timeout
+        onDownloadProgress: (progressEvent) => {
+          if (progressEvent.total) {
+            const percentComplete = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+            setCompleted(percentComplete);
+            setGeneratedText(`Generating... (${percentComplete}% complete)`);
+          }
+        }
+      });
+
+      console.log('Full API response:', response);
+      
+      setGeneratedText(response.data?.generated_text || 
+                      response.data?.text || 
+                      response.data?.output || 
+                      JSON.stringify(response.data));
+      
+      setGenerationTime(response.data?.generation_time || 0);
+      setTokenCount(response.data?.total_tokens || 0);
+
+    } catch (err) {
+      console.error('Generation error:', err);
+      setError(err.response?.data?.message || 
+              err.response?.data?.error || 
+              err.message || 
+              'Generation failed after extended wait time');
+      setGeneratedText('');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    console.log('Current text state:', {
+      generatedText,
+      loading,
+      error,
+      generationTime,
+      tokenCount
+    });
+  }, [generatedText, loading, error]);
 
   return (
     <div className="bg-white p-6 rounded-lg shadow-lg">
