@@ -5,6 +5,11 @@
 - Docker
 - Docker Compose
 
+**NOTE: You need to run the command in `model-downloader` (for now, smallest one) and make sure that there are the `models` folders in `backend/` and `worker/` so they can be copied into their respective containers. The structure should be
+
+`models/`
+-- `llama3_2_1b_instruct_q40/...`
+
 ## Setup and Running Instructions
 
 1. Clone the repository:

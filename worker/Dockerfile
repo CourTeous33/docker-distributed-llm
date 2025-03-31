@@ -33,7 +33,6 @@ RUN make dllama
 RUN echo "Build complete"
 WORKDIR /app
 
-
 # Expose ports
 EXPOSE 5000
 EXPOSE 9998

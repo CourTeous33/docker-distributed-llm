@@ -69,15 +69,16 @@ class DistributedLlamaManager:
             cmd = [
                 "/app/distributed-llama/dllama", 
                 "inference",
-                "--model", self.model_path,
-                "--tokenizer", self.tokenizer_path,
+                "--model", "/models/llama3_2_1b_instruct_q40/dllama_model_llama3_2_1b_instruct_q40.m",
+                "--tokenizer", "/models/llama3_2_1b_instruct_q40/dllama_tokenizer_llama3_2_1b_instruct_q40.t",
                 "--buffer-float-type", "q80",
                 "--max-seq-len", "2048",
-                "--nthreads", "4", 
+                "--nthreads", "1", 
                 "--port", "9999",
             ]
 
-            worker_ips = ["worker1:9998", "worker2:9998", "worker3:9998", "worker4:9998"]
+            # worker_ips = ["172.20.0.11:9998", "172.20.0.12:9998", "172.20.0.13:9998", "172.20.0.14:9998", "172.20.0.15:9998"]
+            worker_ips = ["172.20.0.11:9998", "172.20.0.12:9998", "172.20.0.13:9998"]
             cmd.append("--workers")
             cmd.extend(worker_ips)  # Add each worker as a separate argument
             
@@ -236,8 +237,8 @@ class DistributedLlamaManager:
                 "--buffer-float-type", "q80",
                 "--prompt", prompt,
                 "--steps", str(max_tokens),
-                "--nthreads", "2",
-                "--workers", "worker1:9998",
+                "--nthreads", "1",
+                "--workers", "172.20.0.11:9998 172.20.0.12:9998 172.20.0.13:9998",
                 "--debug"
             ]
             

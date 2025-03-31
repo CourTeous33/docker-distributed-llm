@@ -11,6 +11,9 @@ docker-compose.override.yml
 
 ./models/
 ./backend/distributed-llama
+backend/distributed-llama
+models/ 
+
 # Node.js (Frontend)
 node_modules/
 npm-debug.log*

@@ -1,7 +1,148 @@
 version: '3.8'
 
 services:
-  # Frontend - NextJS application
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: backend
+    restart: unless-stopped
+    volumes:
+      - ./backend:/app
+    environment:
+      - WORKER_URLS=http://worker1:5000,http://worker2:5000,http://worker3:5000,http://worker4:5000,http://worker5:5000
+      - DLLAMA_WORKERS=worker1:9998,worker2:9998,worker3:9998,worker4:9998,worker5:9998
+    ports:
+      - "5006:5000"
+    expose:
+      - "5000"
+      - "9997"
+    cap_add:
+      - NET_ADMIN
+    networks:
+      app-network:
+        ipv4_address: 172.20.0.2
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 4G
+
+  worker1:
+    build:
+      context: ./worker
+      dockerfile: Dockerfile
+    container_name: worker1
+    restart: unless-stopped
+    environment:
+      - WORKER_ID=1
+    ports:
+      - "5001:5000"
+      - "9998:9998"
+    expose:
+      - "5000"
+      - "9998"
+    cap_add:
+      - NET_ADMIN
+    networks:
+      app-network:
+        ipv4_address: 172.20.0.11
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 2G
+
+  worker2:
+    build:
+      context: ./worker
+      dockerfile: Dockerfile
+    container_name: worker2
+    restart: unless-stopped
+    environment:
+      - WORKER_ID=2
+    ports:
+      - "5002:5000"
+      - "9999:9998"
+    expose:
+      - "5000"
+      - "9998"
+    cap_add:
+      - NET_ADMIN
+    networks:
+      app-network:
+        ipv4_address: 172.20.0.12
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 2G
+
+  worker3:
+    build:
+      context: ./worker
+      dockerfile: Dockerfile
+    container_name: worker3
+    restart: unless-stopped
+    environment:
+      - WORKER_ID=3
+    ports:
+      - "5003:5000"
+      - "10000:9998"
+    expose:
+      - "5000"
+      - "9998"
+    cap_add:
+      - NET_ADMIN
+    networks:
+      app-network:
+        ipv4_address: 172.20.0.13
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 2G
+  
+  # worker4:
+  #   build:
+  #     context: ./worker
+  #     dockerfile: Dockerfile
+  #   container_name: worker4
+  #   restart: unless-stopped
+  #   environment:
+  #     - WORKER_ID=4
+  #   ports:
+  #     - "5004:5000"
+  #     - "10001:9998"
+  #   expose:
+  #     - "5000"
+  #     - "9998"
+  #   cap_add:
+  #     - NET_ADMIN
+  #   networks:
+  #     app-network:
+  #       ipv4_address: 172.20.0.14
+
+  # worker5:
+  #   build:
+  #     context: ./worker
+  #     dockerfile: Dockerfile
+  #   container_name: worker5
+  #   restart: unless-stopped
+  #   environment:
+  #     - WORKER_ID=5
+  #   ports:
+  #     - "5005:5000"
+  #     - "10002:9998"
+  #   expose:
+  #     - "5000"
+  #     - "9998"
+  #   cap_add:
+  #     - NET_ADMIN
+  #   networks:
+  #     app-network:
+  #       ipv4_address: 172.20.0.15
+
   webui:
     build:
       context: ./webui
@@ -13,251 +154,22 @@ services:
       - /app/node_modules
     depends_on:
       - backend
-    networks:
-      - app-network
-
-  # Backend - API service that manages worker interactions and serves as distributed-llama root node
-  backend:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
-      args:
-      - BUILDKIT_PROGRESS=plain  # Shows more build details
-    container_name: backend
-    restart: unless-stopped
-    volumes:
-      - ./backend:/app
-      - ./models:/models
-    environment:
-      - WORKER_URLS=http://worker1:5000,http://worker2:5000,http://worker3:5000,http://worker4:5000,http://worker5:5000
-      - DLLAMA_MODEL_PATH=/models/llama3_2_1b_instruct_q40/dllama_model_llama3_2_1b_instruct_q40.m
-      - DLLAMA_TOKENIZER_PATH=/models/llama3_2_1b_instruct_q40/dllama_tokenizer_llama3_2_1b_instruct_q40.t
-    networks:
-      - app-network
-    deploy:
-      resources:
-        limits:
-          cpus: '2.0'
-          memory: 4G
-    # Healthcheck to ensure backend is running properly
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/workers/status"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 40s
-
-  # Workers - Distributed LLM worker containers (1-5)
-  worker1:
-    build:
-      context: ./worker
-      dockerfile: Dockerfile
-    container_name: worker1
-    restart: unless-stopped
-    volumes:
-      - ./worker:/app
-      - ./models:/models
-    environment:
-      - WORKER_ID=1
-      - DLLAMA_WORKER_PORT=9998
-      - DLLAMA_API_PORT=5000
-    networks:
-      - app-network
-    deploy:
-      resources:
-        limits:
-          cpus: '1.0'
-          memory: 2G
-    # Healthcheck to ensure worker is running properly
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:5000/status"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 40s
-
-  worker2:
-    build:
-      context: ./worker
-      dockerfile: Dockerfile
-    container_name: worker2
-    restart: unless-stopped
-    volumes:
-      - ./worker:/app
-      - ./models:/models
-    environment:
-      - WORKER_ID=2
-      - DLLAMA_WORKER_PORT=9998
-      - DLLAMA_API_PORT=5000
-    networks:
-      - app-network
-    deploy:
-      resources:
-        limits:
-          cpus: '1.0'
-          memory: 2G
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:5000/status"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 40s
-
-  worker3:
-    build:
-      context: ./worker
-      dockerfile: Dockerfile
-    container_name: worker3
-    restart: unless-stopped
-    volumes:
-      - ./worker:/app
-      - ./models:/models
-    environment:
-      - WORKER_ID=3
-      - DLLAMA_WORKER_PORT=9998
-      - DLLAMA_API_PORT=5000
-    networks:
-      - app-network
-    deploy:
-      resources:
-        limits:
-          cpus: '1.0'
-          memory: 2G
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:5000/status"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 40s
-
-  worker4:
-    build:
-      context: ./worker
-      dockerfile: Dockerfile
-    container_name: worker4
-    restart: unless-stopped
-    volumes:
-      - ./worker:/app
-      - ./models:/models
-    environment:
-      - WORKER_ID=4
-      - DLLAMA_WORKER_PORT=9998
-      - DLLAMA_API_PORT=5000
-    networks:
-      - app-network
-    deploy:
-      resources:
-        limits:
-          cpus: '1.0'
-          memory: 2G
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:5000/status"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 40s
-
-  worker5:
-    build:
-      context: ./worker
-      dockerfile: Dockerfile
-    container_name: worker5
-    restart: unless-stopped
-    volumes:
-      - ./worker:/app
-      - ./models:/models
-    environment:
-      - WORKER_ID=5
-      - DLLAMA_WORKER_PORT=9998
-      - DLLAMA_API_PORT=5000
-    networks:
-      - app-network
-    deploy:
-      resources:
-        limits:
-          cpus: '1.0'
-          memory: 2G
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:5000/status"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 40s
-
-  # Model downloader service - one-time initialization service
-  model-downloader:
-    build:
-      context: ./model-downloader
-      dockerfile: Dockerfile
-    container_name: model-downloader
-    volumes:
-      - ./models:/models
-    # Remove the MODEL_NAME environment variable to force interactive mode
-    stdin_open: true  # Keep STDIN open
-    tty: true         # Allocate a pseudo-TTY
-    networks:
-      - app-network
-    restart: "no"
-
-  # Nginx - Reverse proxy
-  nginx:
-    image: nginx:alpine
-    container_name: nginx
-    restart: unless-stopped
     ports:
-      - "80:80"
-      - "443:443"
-    volumes:
-      - ./nginx/conf:/etc/nginx/conf.d
-      - ./nginx/certs:/etc/nginx/certs
-      - ./nginx/logs:/var/log/nginx
-    depends_on:
-      - webui
-      - backend
+      - "3001:3000"
     networks:
       - app-network
 
-  # Monitoring service using Prometheus
-  prometheus:
-    image: prom/prometheus
-    container_name: prometheus
-    volumes:
-      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
-      - prometheus_data:/prometheus
-    command:
-      - '--config.file=/etc/prometheus/prometheus.yml'
-      - '--storage.tsdb.path=/prometheus'
-      - '--web.console.libraries=/usr/share/prometheus/console_libraries'
-      - '--web.console.templates=/usr/share/prometheus/consoles'
-    networks:
-      - app-network
-    restart: unless-stopped
-
-  # Visualization with Grafana
-  grafana:
-    image: grafana/grafana
-    container_name: grafana
-    volumes:
-      - grafana_data:/var/lib/grafana
-      - ./grafana/provisioning:/etc/grafana/provisioning
-    environment:
-      - GF_SECURITY_ADMIN_USER=admin
-      - GF_SECURITY_ADMIN_PASSWORD=admin
-      - GF_USERS_ALLOW_SIGN_UP=false
-    depends_on:
-      - prometheus
-    networks:
-      - app-network
-    restart: unless-stopped
-
-# Networks
 networks:
   app-network:
     name: app-network
     driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16
 
-# Volumes for persistent model data and monitoring
 volumes:
-  models:
-  prometheus_data:
-  grafana_data:
+  worker1_model_data:
+  worker2_model_data:
+  worker3_model_data:
+  # worker4_model_data:
+  # worker5_model_data:
