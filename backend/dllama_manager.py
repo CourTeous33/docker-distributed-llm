@@ -73,6 +73,8 @@ class DistributedLlamaManager:
                 "--tokenizer", "/models/llama3_2_1b_instruct_q40/dllama_tokenizer_llama3_2_1b_instruct_q40.t",
                 "--buffer-float-type", "q80",
                 "--max-seq-len", "2048",
+                "--prompt", "Hi there how are you?",
+                "--steps", "10",
                 "--nthreads", "1", 
                 "--port", "9999",
             ]
