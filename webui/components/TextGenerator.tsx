@@ -39,45 +39,86 @@ export default function TextGenerator() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!prompt.trim()) return;
-
+  
+    handleReset();
     setLoading(true);
-    setCompleted(0);
-    setError('');
-    setGeneratedText('Starting generation... (Please wait, this may take several minutes)');
-
+    setGeneratedText('Starting generation...');
+    const startTime = Date.now();
+  
     try {
-      const response = await axios.post('/api/generate', {
-        prompt,
-        max_tokens: maxTokens
-      }, {
-        timeout: 300000, // 5 minute timeout
-        onDownloadProgress: (progressEvent) => {
-          if (progressEvent.total) {
-            const percentComplete = Math.round((progressEvent.loaded * 100) / progressEvent.total);
-            setCompleted(percentComplete);
-            setGeneratedText(`Generating... (${percentComplete}% complete)`);
-          }
+      const eventSource = new EventSource(
+        `/api/stream?prompt=${encodeURIComponent(prompt)}&max_tokens=${maxTokens}`
+      );
+  
+      let combinedText = '';
+      let tokenCount = 0;
+      // Log when the connection is opened
+      eventSource.onopen = () => {
+        console.log("EventSource connection opened.");
+      };
+      eventSource.onmessage = (event) => {
+        const data = event.data;
+        console.log("EventSource onmessage triggered:", event);
+        console.log("Event data:", event.data);
+        
+      
+        // Check if the message is the completion marker [DONE]
+        if (data === '[DONE]') {
+          // Optionally display [DONE] as part of the output
+          combinedText += data;
+          setGeneratedText(combinedText);
+          setLoading(false);
+          setGenerationTime((Date.now() - startTime) / 1000);
+          eventSource.close();
+          return;
         }
-      });
-
-      console.log('Full API response:', response);
-      
-      setGeneratedText(response.data?.generated_text || 
-                      response.data?.text || 
-                      response.data?.output || 
-                      JSON.stringify(response.data));
-      
-      setGenerationTime(response.data?.generation_time || 0);
-      setTokenCount(response.data?.total_tokens || 0);
-
+  
+        // Try parsing the data as JSON (for predicted tokens)
+        try {
+          const parsed = JSON.parse(data);
+          if (parsed.error) {
+            setError(parsed.error);
+            setLoading(false);
+            eventSource.close();
+            return;
+          }
+          if (parsed.text) {
+            combinedText += parsed.text;
+            tokenCount += 1;
+            setGeneratedText(combinedText);
+            setTokenCount(tokenCount);
+          }
+        } catch (err) {
+          // If parsing fails, treat the data as plain text
+          // Skip empty lines or debug output
+          if (
+            !data.trim() ||
+            data.includes('🔷') ||
+            data.includes('Evaluation') ||
+            data.includes('nBatches') ||
+            data.includes('nTokens') ||
+            data.includes('tokens/s') ||
+            data.includes('Prediction') ||
+            data.includes('Network is closed')
+          ) {
+            return;
+          }
+          combinedText += data;
+          tokenCount += 1;
+          setGeneratedText(combinedText);
+          setTokenCount(tokenCount);
+        }
+      };
+  
+      eventSource.onerror = (err) => {
+        console.error('Streaming error:', err);
+        setError('Streaming connection failed');
+        eventSource.close();
+        setLoading(false);
+      };
     } catch (err) {
       console.error('Generation error:', err);
-      setError(err.response?.data?.message || 
-              err.response?.data?.error || 
-              err.message || 
-              'Generation failed after extended wait time');
-      setGeneratedText('');
-    } finally {
+      setError('Failed to connect to generation stream');
       setLoading(false);
     }
   };

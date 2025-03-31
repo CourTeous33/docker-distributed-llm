@@ -4,11 +4,13 @@ This file extends the original FastAPI backend to integrate with
 distributed-llama for distributed inference across worker nodes.
 """
 
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, HTTPException, Request, Query
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
 import httpx
 import os
 import asyncio
+import json
 from typing import List, Dict, Any, Optional
 import logging
 import time
@@ -54,11 +56,6 @@ class GenerateRequest(BaseModel):
     prompt: str
     max_tokens: int = 256
 
-class GenerateResponse(BaseModel):
-    success: bool
-    generated_text: str
-    generation_time: float
-
 class WorkerStatus(BaseModel):
     worker_id: int
     status: str
@@ -99,34 +96,32 @@ async def get_system_status():
     except Exception as e:
         raise HTTPException(500, str(e))
 
-@app.post("/generate", response_model=GenerateResponse)
-async def generate_text(request: GenerateRequest):
-    """Generate text by starting inference server with prompt"""
-    start_time = time.time()
+
+@app.get("/stream")
+async def generate_text(prompt: str = Query(..., description="Prompt for generation")):
+    """Stream only the predicted text tokens from the inference output."""
+    async def generate_stream():
+        try:
+            async for line in dllama_manager.generate_text(prompt):
+                # Only yield lines that contain the prediction marker.
+                if "Pred" in line:
+                    parts = line.split("|")
+                    if len(parts) >= 2:
+                        predicted_text = parts[-1].strip()
+                        # Yield only if there is actual predicted text.
+                        if predicted_text:
+                            yield f"data: {json.dumps({'text': predicted_text})}\n\n"
+            # Send a marker when done.
+            logger.info("Generation completed")
+            yield "data: [DONE]\n\n"
+        except Exception as e:
+            logger.exception("Generation failed")
+            yield f"data: {json.dumps({'error': str(e)})}\n\n"
     
-    try:
-        success, output = await dllama_manager.start_inference_server(request.prompt)
-        generation_time = time.time() - start_time
-        
-        if not success:
-            return GenerateResponse(
-                success=False,
-                generated_text=f"Error: {output}",
-                generation_time=generation_time
-            )
-            
-        # Extract generated text from server output
-        generated_text = output.split(request.prompt)[-1].strip()
-        
-        return GenerateResponse(
-            success=True,
-            generated_text=generated_text,
-            generation_time=generation_time
-        )
-        
-    except Exception as e:
-        logger.exception("Generation failed")
-        raise HTTPException(500, str(e))
+    return StreamingResponse(
+        generate_stream(),
+        media_type="text/event-stream"
+    )
 
 # Worker restart endpoint
 @app.post("/workers/restart")
