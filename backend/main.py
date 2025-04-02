@@ -96,32 +96,34 @@ async def get_system_status():
     except Exception as e:
         raise HTTPException(500, str(e))
 
-
 @app.get("/stream")
-async def generate_text(prompt: str = Query(..., description="Prompt for generation")):
-    """Stream only the predicted text tokens from the inference output."""
+async def generate_text(
+    prompt: str = Query(..., description="Prompt for generation"),
+    max_tokens: int = Query(256, gt=0, le=1024, description="Maximum tokens to generate")
+):
+    """Stream predicted text tokens with proper max_tokens handling"""
+    logger.info(f"Starting generation with {max_tokens} max tokens")
     async def generate_stream():
         try:
-            async for line in dllama_manager.generate_text(prompt):
-                # Only yield lines that contain the prediction marker.
+            async for line in dllama_manager.generate_text(prompt=prompt, max_tokens=max_tokens):
                 if "Pred" in line:
                     parts = line.split("|")
                     if len(parts) >= 2:
                         predicted_text = parts[-1].strip()
-                        # Yield only if there is actual predicted text.
                         if predicted_text:
+                            logger.debug(f"Yielding token: {predicted_text}")
                             yield f"data: {json.dumps({'text': predicted_text})}\n\n"
-            # Send a marker when done.
-            logger.info("Generation completed")
+            logger.info(f"Generation completed with {max_tokens} tokens")
             yield "data: [DONE]\n\n"
         except Exception as e:
-            logger.exception("Generation failed")
+            logger.error(f"Generation failed for {max_tokens} tokens: {str(e)}")
             yield f"data: {json.dumps({'error': str(e)})}\n\n"
     
     return StreamingResponse(
         generate_stream(),
         media_type="text/event-stream"
     )
+
 
 # Worker restart endpoint
 @app.post("/workers/restart")

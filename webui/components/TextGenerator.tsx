@@ -51,9 +51,11 @@ export default function TextGenerator() {
     setGeneratedText('Starting generation...');
     const startTime = Date.now();
 
+    const safeMaxTokens = Math.min(Math.max(maxTokens, 1), 1024);
+
     try {
       const eventSource = new EventSource(
-        `/api/stream?prompt=${encodeURIComponent(prompt)}&max_tokens=${maxTokens}`
+        `/api/stream?prompt=${encodeURIComponent(prompt)}&max_tokens=${safeMaxTokens}`
       );
 
       let combinedText = '';

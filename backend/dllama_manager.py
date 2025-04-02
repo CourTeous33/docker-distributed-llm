@@ -41,9 +41,9 @@ class DistributedLlamaManager:
             ], check=True)
             subprocess.run(["make", "dllama"], cwd="/app/distributed-llama", check=True)
 
-    async def generate_text(self, prompt: str = None) -> AsyncGenerator[str, None]:
+    async def generate_text(self, prompt: str = None, max_tokens: int = 256) -> AsyncGenerator[str, None]:
         """Stream generated text from distributed-llama inference."""
-        process = await self._start_inference_process(prompt)
+        process = await self._start_inference_process(prompt, max_tokens)
         
         try:
             async for line in self._stream_process_output(process):
@@ -51,7 +51,7 @@ class DistributedLlamaManager:
         finally:
             await self._cleanup_process(process)
 
-    async def _start_inference_process(self, prompt: str) -> asyncio.subprocess.Process:
+    async def _start_inference_process(self, prompt: str, max_tokens: int) -> asyncio.subprocess.Process:
         """Start a new inference process per request."""
         cmd = [
             "/app/distributed-llama/dllama", "inference",
@@ -60,7 +60,7 @@ class DistributedLlamaManager:
             "--buffer-float-type", "q80",
             "--max-seq-len", "2048",
             "--prompt", prompt or "Initializing server",
-            "--steps", "10",
+            "--steps",  str(max_tokens),
             "--nthreads", "1",
             "--port", "9999",
             "--workers", "172.20.0.11:9998", "172.20.0.12:9998", "172.20.0.13:9998"
