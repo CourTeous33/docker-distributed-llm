@@ -9,9 +9,10 @@ services:
     restart: unless-stopped
     volumes:
       - ./backend:/app
+      - ./models:/models
     environment:
-      - WORKER_URLS=http://worker1:5000,http://worker2:5000,http://worker3:5000,http://worker4:5000,http://worker5:5000
-      - DLLAMA_WORKERS=worker1:9998,worker2:9998,worker3:9998,worker4:9998,worker5:9998
+      - WORKER_URLS=http://worker1:5000,http://worker2:5000,http://worker3:5000
+      - DLLAMA_WORKERS=worker1:9998,worker2:9998,worker3:9998
     ports:
       - "5006:5000"
     expose:
@@ -27,6 +28,13 @@ services:
         limits:
           cpus: '2.0'
           memory: 4G
+    depends_on:
+      worker1:
+        condition: service_healthy
+      worker2:
+        condition: service_healthy
+      worker3:
+        condition: service_healthy
 
   worker1:
     build:
@@ -34,6 +42,8 @@ services:
       dockerfile: Dockerfile
     container_name: worker1
     restart: unless-stopped
+    volumes:
+      - ./models:/models
     environment:
       - WORKER_ID=1
     ports:
@@ -52,13 +62,20 @@ services:
         limits:
           cpus: '1.0'
           memory: 2G
+    healthcheck:
+      test: curl --fail http://localhost:5000/status || exit 1
+      interval: 5s
+      timeout: 3s
+      retries: 10
 
   worker2:
     build:
       context: ./worker
-      dockerfile: Dockerfile
+      dockerfile: Dockerfile  
     container_name: worker2
     restart: unless-stopped
+    volumes:
+      - ./models:/models
     environment:
       - WORKER_ID=2
     ports:
@@ -77,6 +94,11 @@ services:
         limits:
           cpus: '1.0'
           memory: 2G
+    healthcheck:
+      test: curl --fail http://localhost:5000/status || exit 1
+      interval: 5s
+      timeout: 3s
+      retries: 10
 
   worker3:
     build:
@@ -84,6 +106,8 @@ services:
       dockerfile: Dockerfile
     container_name: worker3
     restart: unless-stopped
+    volumes:
+      - ./models:/models
     environment:
       - WORKER_ID=3
     ports:
@@ -102,6 +126,11 @@ services:
         limits:
           cpus: '1.0'
           memory: 2G
+    healthcheck:
+      test: curl --fail http://localhost:5000/status || exit 1
+      interval: 5s
+      timeout: 3s
+      retries: 10
   
   # worker4:
   #   build:

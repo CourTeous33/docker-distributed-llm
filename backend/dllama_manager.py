@@ -12,7 +12,7 @@ import time
 import asyncio
 import logging
 import httpx
-from typing import List, Dict, Any, Optional, Tuple
+from typing import List, Dict, Any, Optional, Tuple, AsyncGenerator
 
 logger = logging.getLogger(__name__)
 
@@ -53,41 +53,44 @@ class DistributedLlamaManager:
             logger.info("Building dllama-api...")
             subprocess.run(["make", "dllama-api"], cwd="/app/distributed-llama", check=True)
     
-    async def start_inference_server(self) -> bool:
+    async def generate_text(self, prompt: str = None) -> AsyncGenerator[str, None]:
         """
-        Start the distributed-llama inference server
+        Start the distributed-llama inference server and stream output
         
-        Returns:
-            bool: True if the server started successfully
+        Args:
+            prompt: Optional prompt to initialize the server with
+            
+        Yields:
+            str: Output lines from the server
+            
+        Raises:
+            RuntimeError: If server fails to start
         """
         with self.lock:
             if self.process and self.process.poll() is None:
-                logger.info("Inference server is already running")
-                return True
-            
+                msg = "Inference server is already running"
+                logger.info(msg)
+                yield msg
+                return
+
+            # Validate and set prompt
+            init_prompt = str(prompt) if prompt else "Initializing server"
             
             cmd = [
                 "/app/distributed-llama/dllama", 
                 "inference",
-                "--model", "/models/llama3_2_1b_instruct_q40/dllama_model_llama3_2_1b_instruct_q40.m",
-                "--tokenizer", "/models/llama3_2_1b_instruct_q40/dllama_tokenizer_llama3_2_1b_instruct_q40.t",
+                "--model", self.model_path,
+                "--tokenizer", self.tokenizer_path,
                 "--buffer-float-type", "q80",
                 "--max-seq-len", "2048",
-                "--prompt", "Hi there how are you?",
+                "--prompt", init_prompt,
                 "--steps", "10",
                 "--nthreads", "1", 
                 "--port", "9999",
+                "--workers", "172.20.0.11:9998", "172.20.0.12:9998", "172.20.0.13:9998"
             ]
-
-            # worker_ips = ["172.20.0.11:9998", "172.20.0.12:9998", "172.20.0.13:9998", "172.20.0.14:9998", "172.20.0.15:9998"]
-            worker_ips = ["172.20.0.11:9998", "172.20.0.12:9998", "172.20.0.13:9998"]
-            cmd.append("--workers")
-            cmd.extend(worker_ips)  # Add each worker as a separate argument
-            
-           
             
             logger.info(f"Starting distributed-llama server with command: {' '.join(cmd)}")
-            # Rest of the method remains the same
             
             try:
                 self.process = subprocess.Popen(
@@ -103,26 +106,76 @@ class DistributedLlamaManager:
                 
                 if self.process.poll() is not None:
                     stderr = self.process.stderr.read()
-                    if stderr is None:
-                        logger.error(f"Failed to start distributed-llama server: {stderr}")
-                        raise RuntimeError(f"Failed to start distributed-llama server: {stderr}")
-                    
-                # Set up a thread to log output
-                def log_output():
-                    for line in self.process.stdout:
-                        logger.info(f"DLlama server output: {line.strip()}")
-                    for line in self.process.stderr:
-                        logger.error(f"DLlama server error: {line.strip()}")
+                    error_msg = f"Failed to start distributed-llama server: {stderr}"
+                    logger.error(error_msg)
+                    yield error_msg
+                    raise RuntimeError(error_msg)
+
+                # Create a queue for output lines on the current event loop
+                output_queue = asyncio.Queue()
+                # Capture the current (main) event loop
+                main_loop = asyncio.get_running_loop()
                 
-                threading.Thread(target=log_output, daemon=True).start()
+                def capture_output():
+                    try:
+                        for line in self.process.stdout:
+                            output = line
+                            logger.info(f"DLlama server output: {output}")
+                            logger.info(f"DLlama server output (raw): {repr(output)}")
+
+                            # # Schedule the put operation on the main event loop and wait for it to complete
+                            
+                            future = asyncio.run_coroutine_threadsafe(output_queue.put(output), main_loop)
+                            future.result()  # Wait until the put operation completes
+                            logger.info(f"Output enqueued: {output} | Queue size now: {output_queue.qsize()}")
+               
+                        for line in self.process.stderr:
+                            error = line
+                            logger.error(f"DLlama server error: {error}")
+                            
+                    except Exception as thread_exc:
+                        logger.exception("Exception in capture_output thread: %s", thread_exc)
                 
+                threading.Thread(target=capture_output, daemon=True).start()
+                
+                logger.info("Started thread to capture output from distributed-llama server")
+                # Wait briefly to ensure server started
+                await asyncio.sleep(1)
                 logger.info("Distributed-llama server started successfully")
-                return True
                 
+                # Yield lines as they come in
+                while True:
+                    logger.info("Waiting for output from queue...")
+                    while not output_queue.empty():
+                        logger.info("Output queue is not empty; processing items...")
+                        try:
+                            line = output_queue.get_nowait()
+                            logger.info(f"Yielding line: {line}")
+                            yield f"data: {json.dumps({'text': line})}\n\n"
+                        except Exception as e:
+                            logger.exception("Error retrieving item from queue: %s", e)
+                    
+                    # Now wait for the next item.
+                    try:
+                        # This await will pause until a new item is enqueued.
+                        line = await asyncio.wait_for(output_queue.get(), timeout=30)
+                        logger.info(f"Yielding line after wait: {line}")
+                        yield f"data: {json.dumps({'text': line})}\n\n"
+                    except asyncio.TimeoutError:
+                        logger.info("Timeout waiting for output; checking process status...")
+                        if self.process.poll() is not None:
+                            logger.info("Process has ended; breaking out of yield loop.")
+                            break
+                        else:
+                            logger.info("Process still running; continuing to wait for output.")
+                            # Optionally yield a heartbeat message:
+                            yield "data: {\"heartbeat\": \"keepalive\"}\n\n"
             except Exception as e:
-                logger.exception("Error starting distributed-llama server")
-                raise
-    
+                error_msg = f"Error starting distributed-llama server: {str(e)}"
+                logger.exception(error_msg)
+                yield error_msg
+                raise RuntimeError(error_msg)
+
     async def stop_inference_server(self) -> bool:
         """
         Stop the distributed-llama server
@@ -212,64 +265,6 @@ class DistributedLlamaManager:
         
         return available_workers > 0
     
-    async def generate_text(self, prompt: str, max_tokens: int = 256) -> str:
-        """
-        Generate text using the distributed-llama model
-        
-        Args:
-            prompt: The input prompt to generate from
-            max_tokens: Maximum number of tokens to generate
-            
-        Returns:
-            str: Generated text
-        """
-        # First, make sure workers are running
-        await self.ensure_workers_started()
-        
-        # Check if server is running, if not start it
-        if not self.process or self.process.poll() is not None:
-            await self.start_inference_server()
-        
-        try:
-            # Use dllama inference command to generate text
-            cmd = [
-                "/app/distributed-llama/dllama", "inference",
-                "--model", "/models/llama3_2_1b_instruct_q40/dllama_model_llama3_2_1b_instruct_q40.m",
-                "--tokenizer", "/models/llama3_2_1b_instruct_q40/dllama_tokenizer_llama3_2_1b_instruct_q40.t",
-                "--buffer-float-type", "q80",
-                "--prompt", prompt,
-                "--steps", str(max_tokens),
-                "--nthreads", "1",
-                "--workers", "172.20.0.11:9998 172.20.0.12:9998 172.20.0.13:9998",
-                "--debug"
-            ]
-            
-            logger.info(f"Generating text with command: {' '.join(cmd)}")
-            
-            result = subprocess.run(
-                cmd, 
-                cwd="/app/distributed-llama",
-                capture_output=True,
-                text=True,
-                check=False
-            )
-            
-            logger.info(f"Command exit code: {result.returncode}")
-            
-            if result.returncode != 0:
-                logger.error(f"Command stderr: {result.stdout}")
-                return f"Error generating text: {result.stderr}"
-            
-            # Parse and clean the output
-            output = result.stdout.strip()
-            # Remove the prompt from the output if it appears
-            if output.startswith(prompt):
-                output = output[len(prompt):].strip()
-            
-            return output
-        except Exception as e:
-            logger.exception("Error during text generation")
-            return f"Exception during text generation: {str(e)}"
     
     async def get_system_info(self) -> Dict[str, Any]:
         """

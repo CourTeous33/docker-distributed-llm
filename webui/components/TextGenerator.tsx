@@ -5,16 +5,15 @@ export default function TextGenerator() {
   const [prompt, setPrompt] = useState('');
   const [generatedText, setGeneratedText] = useState('');
   const [loading, setLoading] = useState(false);
+  const [completed, setCompleted] = useState(0);
   const [error, setError] = useState('');
   const [generationTime, setGenerationTime] = useState(0);
   const [tokenCount, setTokenCount] = useState(0);
-  const [maxTokens, setMaxTokens] = useState(256);
   const [workers, setWorkers] = useState([]);
-  
-  // Fetch worker status on component mount
+  const [maxTokens, setMaxTokens] = useState(256);
+
   useEffect(() => {
     fetchWorkerStatus();
-    // Refresh status every 10 seconds
     const interval = setInterval(fetchWorkerStatus, 10000);
     return () => clearInterval(interval);
   }, []);
@@ -28,36 +27,111 @@ export default function TextGenerator() {
     }
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setLoading(true);
-    setError('');
-    setGeneratedText('');
-    
-    try {
-      const response = await axios.post('/api/generate', {
-        prompt,
-        max_tokens: maxTokens
-      });
-      
-      setGeneratedText(response.data.generated_text);
-      setGenerationTime(response.data.generation_time);
-      setTokenCount(response.data.total_tokens);
-    } catch (err) {
-      console.error('Error generating text:', err);
-      setError(err.response?.data?.detail || 'Failed to generate text. Please try again.');
-    } finally {
-      setLoading(false);
-    }
-  };
-  
   const handleReset = () => {
     setPrompt('');
     setGeneratedText('');
     setError('');
     setGenerationTime(0);
     setTokenCount(0);
+    setCompleted(0);
   };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!prompt.trim()) return;
+  
+    handleReset();
+    setLoading(true);
+    setGeneratedText('Starting generation...');
+    const startTime = Date.now();
+  
+    try {
+      const eventSource = new EventSource(
+        `/api/stream?prompt=${encodeURIComponent(prompt)}&max_tokens=${maxTokens}`
+      );
+  
+      let combinedText = '';
+      let tokenCount = 0;
+      // Log when the connection is opened
+      eventSource.onopen = () => {
+        console.log("EventSource connection opened.");
+      };
+      eventSource.onmessage = (event) => {
+        const data = event.data;
+        console.log("EventSource onmessage triggered:", event);
+        console.log("Event data:", event.data);
+        
+      
+        // Check if the message is the completion marker [DONE]
+        if (data === '[DONE]') {
+          // Optionally display [DONE] as part of the output
+          combinedText += data;
+          setGeneratedText(combinedText);
+          setLoading(false);
+          setGenerationTime((Date.now() - startTime) / 1000);
+          eventSource.close();
+          return;
+        }
+  
+        // Try parsing the data as JSON (for predicted tokens)
+        try {
+          const parsed = JSON.parse(data);
+          if (parsed.error) {
+            setError(parsed.error);
+            setLoading(false);
+            eventSource.close();
+            return;
+          }
+          if (parsed.text) {
+            combinedText += parsed.text;
+            tokenCount += 1;
+            setGeneratedText(combinedText);
+            setTokenCount(tokenCount);
+          }
+        } catch (err) {
+          // If parsing fails, treat the data as plain text
+          // Skip empty lines or debug output
+          if (
+            !data.trim() ||
+            data.includes('🔷') ||
+            data.includes('Evaluation') ||
+            data.includes('nBatches') ||
+            data.includes('nTokens') ||
+            data.includes('tokens/s') ||
+            data.includes('Prediction') ||
+            data.includes('Network is closed')
+          ) {
+            return;
+          }
+          combinedText += data;
+          tokenCount += 1;
+          setGeneratedText(combinedText);
+          setTokenCount(tokenCount);
+        }
+      };
+  
+      eventSource.onerror = (err) => {
+        console.error('Streaming error:', err);
+        setError('Streaming connection failed');
+        eventSource.close();
+        setLoading(false);
+      };
+    } catch (err) {
+      console.error('Generation error:', err);
+      setError('Failed to connect to generation stream');
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    console.log('Current text state:', {
+      generatedText,
+      loading,
+      error,
+      generationTime,
+      tokenCount
+    });
+  }, [generatedText, loading, error]);
 
   return (
     <div className="bg-white p-6 rounded-lg shadow-lg">

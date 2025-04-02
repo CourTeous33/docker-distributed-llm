@@ -80,6 +80,22 @@ export default function Home() {
     }
   };
 
+  const handleStartServer = async (forceRestart: boolean = false) => {
+    try {
+      setLoading(true);
+      await axios.post('/api/server/start', { force_restart: forceRestart });
+      // Refresh status after starting
+      setTimeout(() => {
+        fetchSystemInfo();
+        setLoading(false);
+      }, 2000);
+    } catch (err) {
+      console.error('Error starting server:', err);
+      setError('Error starting server');
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-100 py-6 flex flex-col justify-center sm:py-12">
       <div className="relative py-3 sm:max-w-4xl sm:mx-auto">
@@ -112,15 +128,35 @@ export default function Home() {
                 </div>
               </div>
               
-              <button
-                onClick={handleRestartWorkers}
-                disabled={loading}
-                className={`mt-3 text-sm px-3 py-1 bg-blue-500 text-white rounded-md ${
-                  loading ? 'opacity-50 cursor-not-allowed' : 'hover:bg-blue-600'
-                }`}
-              >
-                {loading ? 'Restarting...' : 'Restart Workers'}
-              </button>
+              <div className="flex gap-2 mt-3">
+                <button
+                  onClick={() => handleStartServer(false)}
+                  disabled={loading}
+                  className={`text-sm px-3 py-1 bg-green-500 text-white rounded-md ${
+                    loading ? 'opacity-50 cursor-not-allowed' : 'hover:bg-green-600'
+                  }`}
+                >
+                  {loading ? 'Starting...' : 'Start Server'}
+                </button>
+                <button
+                  onClick={() => handleStartServer(true)}
+                  disabled={loading}
+                  className={`text-sm px-3 py-1 bg-yellow-500 text-white rounded-md ${
+                    loading ? 'opacity-50 cursor-not-allowed' : 'hover:bg-yellow-600'
+                  }`}
+                >
+                  {loading ? 'Restarting...' : 'Restart Server'}
+                </button>
+                <button
+                  onClick={handleRestartWorkers}
+                  disabled={loading}
+                  className={`text-sm px-3 py-1 bg-blue-500 text-white rounded-md ${
+                    loading ? 'opacity-50 cursor-not-allowed' : 'hover:bg-blue-600'
+                  }`}
+                >
+                  {loading ? 'Restarting...' : 'Restart Workers'}
+                </button>
+              </div>
             </div>
           )}
           
