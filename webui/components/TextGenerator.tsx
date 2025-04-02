@@ -5,12 +5,13 @@ export default function TextGenerator() {
   const [prompt, setPrompt] = useState('');
   const [generatedText, setGeneratedText] = useState('');
   const [loading, setLoading] = useState(false);
-  const [completed, setCompleted] = useState(0);
   const [error, setError] = useState('');
   const [generationTime, setGenerationTime] = useState(0);
   const [tokenCount, setTokenCount] = useState(0);
   const [workers, setWorkers] = useState([]);
   const [maxTokens, setMaxTokens] = useState(256);
+  const [debugMode, setDebugMode] = useState(false);
+  const [debugOutput, setDebugOutput] = useState([]);
 
   useEffect(() => {
     fetchWorkerStatus();
@@ -33,7 +34,7 @@ export default function TextGenerator() {
     setError('');
     setGenerationTime(0);
     setTokenCount(0);
-    setCompleted(0);
+    setDebugOutput([]);
   };
 
   const handleSubmit = async (e) => {
@@ -42,8 +43,9 @@ export default function TextGenerator() {
   
     handleReset();
     setLoading(true);
-    setGeneratedText('Starting generation...');
+    setGeneratedText('');
     const startTime = Date.now();
+    const debugLines = [];
   
     try {
       const eventSource = new EventSource(
@@ -51,29 +53,30 @@ export default function TextGenerator() {
       );
   
       let combinedText = '';
-      let tokenCount = 0;
+      let tokens = 0;
+      
       // Log when the connection is opened
       eventSource.onopen = () => {
         console.log("EventSource connection opened.");
+        debugLines.push("EventSource connection opened");
+        setDebugOutput(debugLines);
       };
+      
       eventSource.onmessage = (event) => {
         const data = event.data;
-        console.log("EventSource onmessage triggered:", event);
-        console.log("Event data:", event.data);
+        console.log("Event data:", data);
+        debugLines.push(`Raw: ${data}`);
+        setDebugOutput([...debugLines]);
         
-      
-        // Check if the message is the completion marker [DONE]
+        // Check if the message is the completion marker
         if (data === '[DONE]') {
-          // Optionally display [DONE] as part of the output
-          combinedText += data;
-          setGeneratedText(combinedText);
           setLoading(false);
           setGenerationTime((Date.now() - startTime) / 1000);
           eventSource.close();
           return;
         }
-  
-        // Try parsing the data as JSON (for predicted tokens)
+
+        // Try parsing as JSON first (future-proofing)
         try {
           const parsed = JSON.parse(data);
           if (parsed.error) {
@@ -84,34 +87,49 @@ export default function TextGenerator() {
           }
           if (parsed.text) {
             combinedText += parsed.text;
-            tokenCount += 1;
+            tokens += 1;
             setGeneratedText(combinedText);
-            setTokenCount(tokenCount);
-          }
-        } catch (err) {
-          // If parsing fails, treat the data as plain text
-          // Skip empty lines or debug output
-          if (
-            !data.trim() ||
-            data.includes('🔷') ||
-            data.includes('Evaluation') ||
-            data.includes('nBatches') ||
-            data.includes('nTokens') ||
-            data.includes('tokens/s') ||
-            data.includes('Prediction') ||
-            data.includes('Network is closed')
-          ) {
+            setTokenCount(tokens);
             return;
           }
-          combinedText += data;
-          tokenCount += 1;
-          setGeneratedText(combinedText);
-          setTokenCount(tokenCount);
+        } catch (err) {
+          // Not JSON, continue with plain text processing
+        }
+
+        // Handle prediction token lines (based on your backend output format)
+        if (data.includes('🔶 Pred')) {
+          // Extract the token from the line (after the last | character)
+          const parts = data.split('|');
+          if (parts.length > 0) {
+            const token = parts[parts.length - 1].trim();
+            combinedText += token;
+            tokens += 1;
+            setGeneratedText(combinedText);
+            setTokenCount(tokens);
+          }
+        } 
+        // Check if this is the raw prompt being echoed back
+        else if (!data.startsWith('🔷') && 
+                !data.startsWith('💡') && 
+                !data.startsWith('📄') && 
+                !data.startsWith('Evaluation') && 
+                !data.startsWith('Prediction') && 
+                !data.includes('tokens/s') && 
+                !data.includes('nBatches') && 
+                !data.includes('nTokens') && 
+                !data.includes('Network is') && 
+                data.trim().length > 0) {
+          // This could be the prompt being echoed back, or other important text
+          // Let's log it in debug but not add it to the output
+          debugLines.push(`Possible prompt echo: ${data}`);
+          setDebugOutput([...debugLines]);
         }
       };
   
       eventSource.onerror = (err) => {
         console.error('Streaming error:', err);
+        debugLines.push(`Error: ${err}`);
+        setDebugOutput([...debugLines]);
         setError('Streaming connection failed');
         eventSource.close();
         setLoading(false);
@@ -122,16 +140,6 @@ export default function TextGenerator() {
       setLoading(false);
     }
   };
-
-  useEffect(() => {
-    console.log('Current text state:', {
-      generatedText,
-      loading,
-      error,
-      generationTime,
-      tokenCount
-    });
-  }, [generatedText, loading, error]);
 
   return (
     <div className="bg-white p-6 rounded-lg shadow-lg">
@@ -209,6 +217,14 @@ export default function TextGenerator() {
           >
             Reset
           </button>
+          
+          <button
+            type="button"
+            onClick={() => setDebugMode(!debugMode)}
+            className="bg-amber-300 text-gray-800 py-2 px-4 rounded-md hover:bg-amber-400"
+          >
+            {debugMode ? 'Hide Debug' : 'Show Debug'}
+          </button>
         </div>
       </form>
       
@@ -230,7 +246,7 @@ export default function TextGenerator() {
         <div className="mt-4">
           <h3 className="text-lg font-medium mb-2">Generated Text:</h3>
           <div className="p-4 bg-gray-100 rounded-md whitespace-pre-wrap border border-gray-300">
-            {generatedText}
+            {generatedText.length > 0 ? generatedText : "(No output generated yet)"}
           </div>
           
           <div className="mt-2 grid grid-cols-2 gap-2">
@@ -242,6 +258,18 @@ export default function TextGenerator() {
               <span className="text-sm font-medium">Total Tokens:</span>
               <span className="text-sm ml-1">{tokenCount}</span>
             </div>
+          </div>
+        </div>
+      )}
+      
+      {/* Debug Output */}
+      {debugMode && (
+        <div className="mt-6 border-t pt-4">
+          <h3 className="text-lg font-medium mb-2">Debug Output:</h3>
+          <div className="p-4 bg-gray-900 text-green-400 rounded-md text-xs font-mono h-64 overflow-auto">
+            {debugOutput.map((line, i) => (
+              <div key={i}>{line}</div>
+            ))}
           </div>
         </div>
       )}
