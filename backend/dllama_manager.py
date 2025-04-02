@@ -106,10 +106,9 @@ class DistributedLlamaManager:
                 
                 if self.process.poll() is not None:
                     stderr = self.process.stderr.read()
-                    error_msg = f"Failed to start distributed-llama server: {stderr}"
-                    logger.error(error_msg)
-                    yield error_msg
-                    raise RuntimeError(error_msg)
+                    if stderr is None: # system bug with Mac, need to have this None check
+                        logger.error(f"Failed to start distributed-llama server: {stderr}")
+                        raise RuntimeError(f"Failed to start distributed-llama server: {stderr}")
 
                 # Create a queue for output lines on the current event loop
                 output_queue = asyncio.Queue()
