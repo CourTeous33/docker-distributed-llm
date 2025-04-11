@@ -146,10 +146,11 @@ class DistributedLlamaManager:
         """Get complete system status."""
         workers = await self.check_worker_status()
         return {
-            "model": os.path.basename(self.model_path),
-            "active_workers": sum(1 for w in workers.values() if w["is_available"]),
+            "server_status": "running",
+            "model_path": os.path.basename(self.model_path),
+            "available_workers": sum(1 for w in workers.values() if w["is_available"]),
             "total_workers": len(self.worker_urls),
-            "workers": workers
+            "tokenizer_path": os.path.basename(self.tokenizer_path)
         }
 
     async def close(self):

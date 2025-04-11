@@ -69,6 +69,7 @@ export default function TextGenerator() {
       // Handle incoming messages
       eventSource.onmessage = (event) => {
         const data = event.data;
+        console.log(data);
 
         // Check if the message is the completion marker [DONE]
         if (data === '[DONE]') {
