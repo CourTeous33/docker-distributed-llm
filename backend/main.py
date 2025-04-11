@@ -14,6 +14,7 @@ import json
 from typing import List, Dict, Any, Optional
 import logging
 import time
+import random
 from pydantic import BaseModel
 
 from dllama_manager import DistributedLlamaManager
@@ -104,6 +105,11 @@ async def generate_text(
     """Stream predicted text tokens with proper max_tokens handling"""
     logger.info(f"Starting generation with {max_tokens} max tokens")
     async def generate_stream():
+        total_delay = 0.0
+        first_token = True
+        start_time = time.time() 
+        ttft = 0.0
+
         try:
             async for line in dllama_manager.generate_text(prompt=prompt, max_tokens=max_tokens):
                 if "Pred" in line:
@@ -111,9 +117,25 @@ async def generate_text(
                     if len(parts) >= 2:
                         predicted_text = parts[-1].strip()
                         if predicted_text:
+                            # TTFT logic
+                            if first_token:
+                                first_token = False
+                                ttft = time.time() - start_time
+                                logger.info(f"TTFT: {ttft:.2f}s")
+
+                            # Add some delay to simulate network when we yield the text up to the frontend
+                            delay = random.uniform(0.05, 0.2) # 50 to 200 ms
+                            logger.info(f"Simulating delay: {delay:.2f}s")
+                            await asyncio.sleep(delay)
+                            total_delay += delay 
+
                             logger.debug(f"Yielding token: {predicted_text}")
                             yield f"data: {json.dumps({'text': predicted_text})}\n\n"
             logger.info(f"Generation completed with {max_tokens} tokens")
+            # Send the simulated metrics 
+            logger.info(f"TTFT: {ttft:.2f}s")
+            logger.info(f"Total Delay: {total_delay:.2f}s")
+            yield f"data: {json.dumps({'ttft': ttft, 'total_delay': total_delay})}\n\n"
             yield "data: [DONE]\n\n"
         except Exception as e:
             logger.error(f"Generation failed for {max_tokens} tokens: {str(e)}")

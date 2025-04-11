@@ -8,6 +8,8 @@ export default function TextGenerator() {
   const [completed, setCompleted] = useState(0);
   const [error, setError] = useState('');
   const [generationTime, setGenerationTime] = useState(0);
+  const [ttft, setTtft] = useState(0);
+  const [totalDelay, setTotalDelay] = useState(0);
   const [tokenCount, setTokenCount] = useState(0);
   const [workers, setWorkers] = useState([]);
   const [maxTokens, setMaxTokens] = useState(256);
@@ -93,6 +95,14 @@ export default function TextGenerator() {
             tokenCount += 1;
             setGeneratedText(cleanGeneratedText(combinedText));
             setTokenCount(tokenCount);
+          }
+          if (parsed.ttft) {
+            console.log(`ttft: ${parsed.ttft}`);
+            setTtft(parsed.ttft);
+          }
+          if (parsed.total_delay) {
+            console.log(`total delay: ${parsed.total_delay}`);
+            setTotalDelay(parsed.total_delay);
           }
         } catch (err) {
           // If parsing fails, treat the data as plain text
@@ -219,12 +229,20 @@ export default function TextGenerator() {
 
           <div className="mt-2 grid grid-cols-2 gap-2">
             <div className="bg-blue-50 p-2 rounded border border-blue-200">
-              <span className="text-sm font-medium">Generation Time:</span>
+              <span className="text-sm font-medium">Total Generation Time: </span>
               <span className="text-sm ml-1">{generationTime.toFixed(2)} seconds</span>
             </div>
             <div className="bg-green-50 p-2 rounded border border-green-200">
-              <span className="text-sm font-medium">Total Tokens:</span>
+              <span className="text-sm font-medium">Total Tokens Generated: </span>
               <span className="text-sm ml-1">{tokenCount}</span>
+            </div>
+            <div className="bg-green-50 p-2 rounded border border-green-200">
+              <span className="text-sm font-medium">TTFT: </span>
+              <span className="text-sm ml-1">{ttft.toFixed(2)} seconds</span>
+            </div>
+            <div className="bg-green-50 p-2 rounded border border-green-200">
+              <span className="text-sm font-medium">Simulated Delay (Communication Overhead): </span>
+              <span className="text-sm ml-1">{totalDelay.toFixed(2)} seconds</span>
             </div>
           </div>
         </div>
