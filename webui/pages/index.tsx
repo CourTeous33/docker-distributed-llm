@@ -173,8 +173,7 @@ export default function Home() {
                       : 'bg-red-100 border-red-400'
                   }`}
                 >
-                  <div className="font-medium">Worker {worker.worker_id}</div>
-                  <div className="text-xs mb-1">{worker.status}</div>
+                  <div className="font-medium">Worker {worker.worker_id}: {worker.status}</div>
                   
                   {worker.is_available && worker.memory_usage_mb !== undefined && (
                     <>

@@ -59,7 +59,7 @@ class DistributedLlamaManager:
             "--tokenizer", self.tokenizer_path,
             "--buffer-float-type", "q80",
             "--max-seq-len", "2048",
-            "--prompt", prompt or "Initializing server",
+            "--prompt", prompt,
             "--steps",  str(max_tokens),
             "--nthreads", "1",
             "--port", "9999",
@@ -148,7 +148,7 @@ class DistributedLlamaManager:
         return {
             "server_status": "running",
             "model_path": os.path.basename(self.model_path),
-            "available_workers": sum(1 for w in workers.values() if w["is_available"]),
+            "available_workers": sum(1 for w in workers.values() if w.get("is_available")),
             "total_workers": len(self.worker_urls),
             "tokenizer_path": os.path.basename(self.tokenizer_path)
         }

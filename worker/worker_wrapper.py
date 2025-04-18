@@ -1,8 +1,6 @@
 #!/usr/bin/env python3
 """
-Worker wrapper for distributed-llama integration
-This script manages the distributed-llama worker process and provides a Flask API
-for status monitoring and control.
+Minimal worker wrapper for distributed-llama integration (since we move tracking to the backend with docker-stats)
 """
 
 import os
@@ -12,8 +10,7 @@ import time
 import logging
 import signal
 import sys
-import psutil
-from flask import Flask, jsonify, request
+from flask import Flask, jsonify
 
 # Configure logging
 logging.basicConfig(
@@ -22,52 +19,17 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# Create Flask app
 app = Flask(__name__)
 
-# Get worker ID and port configuration from environment variables
+# Configuration from environment
 worker_id = int(os.environ.get("WORKER_ID", "1"))
-dllama_worker_port = int(os.environ.get("DLLAMA_WORKER_PORT", "9998"))
 api_port = int(os.environ.get("DLLAMA_API_PORT", "5000"))
-
-# Global variable to track the worker process
 dllama_worker_process = None
-worker_status = {
-    "status": "initializing",
-    "memory_usage": 0,
-    "cpu_usage": 0,
-    "start_time": None,
-    "is_available": False
-}
-
-def monitor_resource_usage():
-    """Monitor resource usage of the worker process"""
-    global dllama_worker_process, worker_status
-    
-    while True:
-        if dllama_worker_process and dllama_worker_process.poll() is None:
-            try:
-                # Get process information
-                process = psutil.Process(dllama_worker_process.pid)
-                
-                # Update status
-                worker_status["memory_usage"] = process.memory_info().rss / (1024 * 1024)  # MB
-                worker_status["cpu_usage"] = process.cpu_percent(interval=0.1)
-                worker_status["is_available"] = True
-                worker_status["status"] = "online"
-            except (psutil.NoSuchProcess, psutil.AccessDenied):
-                worker_status["is_available"] = False
-                worker_status["status"] = "error"
-        else:
-            worker_status["is_available"] = False
-            worker_status["status"] = "stopped" if dllama_worker_process else "not_started"
-        
-        time.sleep(5)  # Update every 5 seconds
+process_start_time = None
 
 def start_dllama_worker():
-    """Start the distributed-llama worker process"""
-    global dllama_worker_process
-    
+    """Start the worker process"""
+    global dllama_worker_process, process_start_time
     cmd = [
         "/dllama-app/distributed-llama/dllama", 
         "worker",
@@ -75,103 +37,33 @@ def start_dllama_worker():
         "--nthreads", "1"
     ]
     
-    logger.info(f"Starting distributed-llama worker with command: {' '.join(cmd)}")
-    
+    logger.info(f"Starting worker: {' '.join(cmd)}")
     dllama_worker_process = subprocess.Popen(
         cmd, 
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         text=True
     )
+    process_start_time = time.time()
     
-    # Update worker status
-    worker_status["start_time"] = time.time()
-    
-    # Check if the process started successfully
-    time.sleep(3)
-    if dllama_worker_process.poll() is not None:
-        stderr = dllama_worker_process.stderr.read()
-        logger.error(f"Failed to start distributed-llama worker: {stderr}")
-        worker_status["status"] = "error"
-        worker_status["is_available"] = False
-        raise RuntimeError(f"Failed to start distributed-llama worker: {stderr}")
-    
-    logger.info("Distributed-llama worker started successfully")
-    worker_status["status"] = "online"
-    worker_status["is_available"] = True
-    
-    # Set up a thread to log output
+    # Log output thread
     def log_output():
-        for line in dllama_worker_process.stdout:
-            logger.info(f"DLlama worker output: {line.strip()}")
-        for line in dllama_worker_process.stderr:
-            logger.error(f"DLlama worker error: {line.strip()}")
-    
+        while True:
+            line = dllama_worker_process.stderr.readline()
+            if line: logger.error(f"Worker error: {line.strip()}")
+
     threading.Thread(target=log_output, daemon=True).start()
-    return True
 
 @app.route("/status", methods=["GET"])
 def status():
-    """Return the status of the worker"""
-    global dllama_worker_process, worker_status
-    
-    # Check if process is still running
-    if dllama_worker_process and dllama_worker_process.poll() is None:
-        is_running = True
-    else:
-        is_running = False
-        worker_status["is_available"] = False
-        worker_status["status"] = "stopped" if dllama_worker_process else "not_started"
-    
+    """Return worker status with availability"""
+    is_running = bool(dllama_worker_process and dllama_worker_process.poll() is None)
     return jsonify({
         "worker_id": worker_id,
-        "status": worker_status["status"],
-        "is_available": worker_status["is_available"],
-        "process_running": is_running,
-        "memory_usage_mb": worker_status["memory_usage"],
-        "cpu_usage_percent": worker_status["cpu_usage"],
-        "uptime_seconds": time.time() - worker_status["start_time"] if worker_status["start_time"] else 0
+        "status": "online" if is_running else "offline",
+        "is_available": is_running,  
+        "uptime_seconds": time.time() - process_start_time if process_start_time else 0
     })
-
-@app.route("/metrics", methods=["GET"])
-def metrics():
-    """Return detailed metrics for the worker"""
-    global dllama_worker_process, worker_status
-    
-    if not dllama_worker_process or dllama_worker_process.poll() is not None:
-        return jsonify({
-            "worker_id": worker_id,
-            "status": "offline",
-            "error": "Worker process is not running"
-        }), 404
-    
-    try:
-        # Get detailed process information
-        process = psutil.Process(dllama_worker_process.pid)
-        
-        return jsonify({
-            "worker_id": worker_id,
-            "status": worker_status["status"],
-            "memory": {
-                "rss_mb": process.memory_info().rss / (1024 * 1024),
-                "vms_mb": process.memory_info().vms / (1024 * 1024),
-            },
-            "cpu": {
-                "usage_percent": process.cpu_percent(interval=0.1),
-                "num_threads": process.num_threads(),
-            },
-            "io": {
-                "read_count": process.io_counters().read_count if hasattr(process.io_counters(), 'read_count') else 0,
-                "write_count": process.io_counters().write_count if hasattr(process.io_counters(), 'write_count') else 0,
-            },
-            "uptime_seconds": time.time() - worker_status["start_time"] if worker_status["start_time"] else 0
-        })
-    except (psutil.NoSuchProcess, psutil.AccessDenied) as e:
-        return jsonify({
-            "worker_id": worker_id,
-            "status": "error",
-            "error": str(e)
-        }), 500
 
 @app.route("/start", methods=["POST"])
 def start_worker():
@@ -251,16 +143,6 @@ def signal_handler(sig, frame):
     sys.exit(0)
 
 if __name__ == "__main__":
-    # Register signal handlers
-    signal.signal(signal.SIGINT, signal_handler)
-    signal.signal(signal.SIGTERM, signal_handler)
-    
-    # Start the resource monitoring thread
-    threading.Thread(target=monitor_resource_usage, daemon=True).start()
-    
-    # Start the distributed-llama worker in a separate thread
+    signal.signal(signal.SIGINT, lambda s, f: sys.exit(0))
     threading.Thread(target=start_dllama_worker).start()
-    
-    # Start the Flask app
-    logger.info(f"Starting Flask app on port {api_port}")
     app.run(host="0.0.0.0", port=api_port)

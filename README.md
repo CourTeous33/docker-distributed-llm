@@ -1,14 +1,26 @@
 # cs598-final-project
-# Distributed Language Model System
+# Simulated Distributed Language Model System
+
+Containerized version of [b4rtaz's dllama repo](https://github.com/b4rtaz/distributed-llama). Made for CS598: FLA, Spring 2025. 
 
 ## Prerequisites
 - Docker
 - Docker Compose
+- Python3
+- C++ compiler
 
-**NOTE: You need to run the command in `model-downloader` (for now, smallest one) and make sure that there are the `models` folders in `backend/` and `worker/` so they can be copied into their respective containers. The structure should be
+**NOTE: You need to run the file `model_downloader.py` in `model-downloader/` to ensure there is a model included in `/models` so that it can be copied over to the volume of the root worker (backend). For reference, for the 1B model, the structure should be:
 
 `models/`
 -- `llama3_2_1b_instruct_q40/...`
+
+This means the backend needs to have enough memory for the modelfile, tokenizer, etc. 
+
+Additionally, swapping models and number workers means you need to change the `config.py` variables in `backend/` (to point to the correct additional workers, model path, tokenizer path).
+
+To modify the ranges of randomized latency generation, we provide `LATENCY_MIN` and `LATENCY_MAX` in `backend/config.py`. 
+
+TODO: Move these notes to the setup / running instructions to be more clear. 
 
 ## Setup and Running Instructions
 
@@ -23,24 +35,19 @@
    docker compose up --build
    ```
 
-3. To run in detached mode (background):
-   ```bash
-   docker compose up -d
-   ```
-
-4. To stop the services:
+3. To stop the services:
    ```bash
    docker compose down
    ```
 
-5. To view logs:
+4. To view logs:
    ```bash
    docker compose logs -f
    ```
 
 ## Service Access
-- Frontend: http://localhost
-- Backend API: http://localhost:8000
+- Frontend: http://localhost:3001
+<!-- - Backend API: http://localhost:8000 -->
 
 ## Troubleshooting
 
