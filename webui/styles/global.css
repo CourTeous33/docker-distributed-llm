@@ -1,0 +1,89 @@
+/* Custom scrollbar styling */
+::-webkit-scrollbar {
+    width: 8px;
+  }
+  
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  
+  ::-webkit-scrollbar-thumb {
+    background-color: rgba(0, 0, 0, 0.1);
+    border-radius: 20px;
+    border: 2px solid transparent;
+    background-clip: content-box;
+  }
+  
+  ::-webkit-scrollbar-thumb:hover {
+    background-color: rgba(0, 0, 0, 0.2);
+  }
+  
+  /* Message bubble animations */
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  
+  .fade-in {
+    animation: fadeIn 0.3s ease-out;
+  }
+  
+  /* Prevent content shift on scrollbar appear */
+  body {
+    overflow-y: scroll;
+  }
+  
+  /* Custom rounded corners for chat bubbles */
+  .chat-bubble-user {
+    border-radius: 18px 18px 4px 18px !important;
+  }
+  
+  .chat-bubble-assistant {
+    border-radius: 18px 18px 18px 4px !important;
+  }
+  
+  /* Slide animation for status panel */
+  .status-panel {
+    transition: width 0.3s ease;
+  }
+  
+  /* Loading animation tweaks */
+  .spinner-grow-sm {
+    width: 0.5rem;
+    height: 0.5rem;
+  }
+  
+  /* Fixed height for message container */
+  .messages-container {
+    height: calc(100vh - 130px);
+  }
+  
+  /* Fix for input area and status panel overlap */
+  .chat-container {
+    position: relative;
+    z-index: 10;
+  }
+  
+  .status-panel-container {
+    z-index: 5;
+  }
+  
+  /* Ensure form controls are above the sidebar */
+  .form-control, .btn {
+    position: relative;
+    z-index: 200;
+  }
+  
+  /* Input area styling */
+  .chat-input-container {
+    position: relative;
+    z-index: 150;
+    background-color: white;
+  }
+  
+  /* Make sure the sidebar doesn't obscure input elements */
+  @media (max-width: 767px) {
+    .main-content {
+      padding-right: 0 !important;
+    }
+  }
