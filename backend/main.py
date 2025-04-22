@@ -202,18 +202,26 @@ def start_docker_monitoring():
                         cpu_percent = (cpu_delta / system_delta) * cpu_cores * 100
                     
                     # Memory calculation
-                    mem_stats = stats["memory_stats"]
-                    mem_usage = mem_stats.get("usage", 0)
-                    mem_limit = mem_stats.get("limit", 1)
-                    mem_percent = (mem_usage / mem_limit) * 100 if mem_limit else 0
+                    # mem_stats = stats["memory_stats"]
+                    # mem_usage = mem_stats.get("usage", 0)
+                    # mem_limit = mem_stats.get("limit", 1)
+                    # mem_percent = (mem_usage / mem_limit) * 100 if mem_limit else 0
+                    mem_usage = stats["memory_stats"].get("usage", 0)
+                    mem_mb = mem_usage / (1024**2)
                     
                     app.state.cpu_stats[name].append(cpu_percent)
-                    app.state.mem_stats[name].append(mem_percent)
+                    app.state.mem_stats[name].append(mem_mb)
+
+                    # logger.info(
+                    #     f"Docker stats [{name}] "
+                    #     f"CPU: {cpu_percent:.2f}% | "
+                    #     f"Mem: {mem_usage/1024/1024:.2f}MB ({mem_percent:.2f}%)"
+                    # )
 
                     logger.info(
                         f"Docker stats [{name}] "
                         f"CPU: {cpu_percent:.2f}% | "
-                        f"Mem: {mem_usage/1024/1024:.2f}MB ({mem_percent:.2f}%)"
+                        f"Mem: {mem_usage/1024/1024:.2f}MB"
                     )
                 
                 time.sleep(0.1)  # Collect every 100ms

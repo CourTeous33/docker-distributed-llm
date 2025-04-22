@@ -188,17 +188,19 @@ export default function ChatInterface() {
 
                 {message.metrics && (
                   <div className="mt-2 pt-2 border-top small opacity-75">
-                    <div className="row row-cols-2 g-2">
-                      <div className="col">TTFT: {message.metrics.ttft?.toFixed(2)}s</div>
-                      <div className="col">Tokens: {message.metrics.tokenCount}</div>
-                      <div className="col">Time: {message.metrics.generationTime?.toFixed(2)}s</div>
-                      <div className="col">Delay: {message.metrics.totalDelay?.toFixed(2)}s</div>
-                    </div>
-
+                  <div className="row row-cols-2 g-2">
+                    <div className="col">TTFT: {message.metrics.ttft?.toFixed(2)}s</div>
+                    <div className="col">Tokens: {message.metrics.tokenCount}</div>
+                    <div className="col">Time: {message.metrics.generationTime?.toFixed(2)}s</div>
+                    <div className="col">Delay: {message.metrics.totalDelay?.toFixed(2)}s</div>
+                  </div>
+                
+                  {/* new side‑by‑side CPU & Memory */}
+                  <div className="row mt-2">
                     {message.metrics.cpuStats && (
-                      <div className="mt-1">
+                      <div className="col">
                         <strong>CPU:</strong>
-                        <ul className="ps-3 mb-1">
+                        <ul className="ps-3 mb-0">
                           {Object.entries(message.metrics.cpuStats).map(([name, stats]) => (
                             <li key={name}>
                               {name}: max {stats.max.toFixed(2)}%, avg {stats.avg.toFixed(2)}%
@@ -207,9 +209,9 @@ export default function ChatInterface() {
                         </ul>
                       </div>
                     )}
-
+                
                     {message.metrics.memStats && (
-                      <div>
+                      <div className="col">
                         <strong>Memory:</strong>
                         <ul className="ps-3 mb-0">
                           {Object.entries(message.metrics.memStats).map(([name, stats]) => (
@@ -221,6 +223,8 @@ export default function ChatInterface() {
                       </div>
                     )}
                   </div>
+                </div>
+                
                 )}
               </div>
             </div>
