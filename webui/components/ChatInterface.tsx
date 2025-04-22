@@ -11,6 +11,8 @@ interface Message {
     totalDelay?: number;
     tokenCount?: number;
     generationTime?: number;
+    cpuStats?: Record<string, { max: number; avg: number }>;
+    memStats?: Record<string, { max: number; avg: number }>;
   };
 }
 
@@ -39,44 +41,48 @@ export default function ChatInterface() {
       content: input,
       timestamp: new Date()
     };
-
     setMessages(prev => [...prev, userMessage]);
     setInput("");
     setLoading(true);
 
     const assistantMessageId = (Date.now() + 1).toString();
-    
+    // Initialize metrics
+    let metrics: Message["metrics"] = {
+      ttft: 0,
+      totalDelay: 0,
+      tokenCount: 0,
+      generationTime: 0,
+      cpuStats: undefined,
+      memStats: undefined
+    };
+    let fullResponse = "";
+    const startTime = Date.now();
+
+    // Add placeholder assistant message
+    setMessages(prev => [
+      ...prev,
+      {
+        id: assistantMessageId,
+        type: 'assistant',
+        content: "",
+        timestamp: new Date()
+      }
+    ]);
+
     try {
       const eventSource = new EventSource(
         `/api/stream?prompt=${encodeURIComponent(input)}&max_tokens=${maxTokens}`
       );
 
-      let fullResponse = "";
-      let metrics = {
-        ttft: 0,
-        totalDelay: 0,
-        tokenCount: 0,
-        generationTime: 0
-      };
-      const startTime = Date.now();
-
-      // Initialize assistant message
-      setMessages(prev => [...prev, {
-        id: assistantMessageId,
-        type: 'assistant',
-        content: "",
-        timestamp: new Date()
-      }]);
-
       eventSource.onmessage = (event) => {
         const data = event.data;
-        
         if (data === "[DONE]") {
           metrics.generationTime = (Date.now() - startTime) / 1000;
-          setMessages(prev => 
-            prev.map(msg => 
-              msg.id === assistantMessageId 
-                ? { ...msg, metrics } 
+          // Attach metrics to the assistant message
+          setMessages(prev =>
+            prev.map(msg =>
+              msg.id === assistantMessageId
+                ? { ...msg, metrics }
                 : msg
             )
           );
@@ -87,27 +93,38 @@ export default function ChatInterface() {
 
         try {
           const parsed = JSON.parse(data);
+
           if (parsed.text) {
             fullResponse += parsed.text;
-            metrics.tokenCount += 1;
-            
-            setMessages(prev => 
-              prev.map(msg => 
-                msg.id === assistantMessageId 
-                  ? { ...msg, content: fullResponse } 
+            metrics.tokenCount! += 1;
+            setMessages(prev =>
+              prev.map(msg =>
+                msg.id === assistantMessageId
+                  ? { ...msg, content: fullResponse }
                   : msg
               )
             );
           }
-          if (parsed.ttft) metrics.ttft = parsed.ttft;
-          if (parsed.total_delay) metrics.totalDelay = parsed.total_delay;
-        } catch (err) {
+          if (parsed.ttft !== undefined) {
+            metrics.ttft = parsed.ttft;
+          }
+          if (parsed.total_delay !== undefined) {
+            metrics.totalDelay = parsed.total_delay;
+          }
+          if (parsed.cpu_stats) {
+            metrics.cpuStats = parsed.cpu_stats;
+          }
+          if (parsed.mem_stats) {
+            metrics.memStats = parsed.mem_stats;
+          }
+        } catch {
+          // Non-JSON chunk
           fullResponse += data;
-          metrics.tokenCount += 1;
-          setMessages(prev => 
-            prev.map(msg => 
-              msg.id === assistantMessageId 
-                ? { ...msg, content: fullResponse } 
+          metrics.tokenCount! += 1;
+          setMessages(prev =>
+            prev.map(msg =>
+              msg.id === assistantMessageId
+                ? { ...msg, content: fullResponse }
                 : msg
             )
           );
@@ -148,18 +165,18 @@ export default function ChatInterface() {
         )}
 
         {messages.map((message) => (
-          <div 
-            key={message.id} 
+          <div
+            key={message.id}
             className={`d-flex ${message.type === 'user' ? 'justify-content-end' : 'justify-content-start'}`}
           >
-            <div 
+            <div
               className={`card ${
-                message.type === 'user' 
-                  ? 'bg-primary text-white' 
+                message.type === 'user'
+                  ? 'bg-primary text-white'
                   : 'bg-light'
               }`}
-              style={{ 
-                maxWidth: '75%', 
+              style={{
+                maxWidth: '75%',
                 borderRadius: '1rem',
                 boxShadow: message.type === 'user' ? 'none' : '0 2px 4px rgba(0,0,0,0.05)'
               }}
@@ -168,22 +185,52 @@ export default function ChatInterface() {
                 <div style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
                   {message.content}
                 </div>
-                
+
                 {message.metrics && (
                   <div className="mt-2 pt-2 border-top small opacity-75">
-                    <div className="row row-cols-2 g-2">
-                      <div className="col">TTFT: {message.metrics.ttft?.toFixed(2)}s</div>
-                      <div className="col">Tokens: {message.metrics.tokenCount}</div>
-                      <div className="col">Time: {message.metrics.generationTime?.toFixed(2)}s</div>
-                      <div className="col">Delay: {message.metrics.totalDelay?.toFixed(2)}s</div>
-                    </div>
+                  <div className="row row-cols-2 g-2">
+                    <div className="col">TTFT: {message.metrics.ttft?.toFixed(2)}s</div>
+                    <div className="col">Tokens: {message.metrics.tokenCount}</div>
+                    <div className="col">Time: {message.metrics.generationTime?.toFixed(2)}s</div>
+                    <div className="col">Delay: {message.metrics.totalDelay?.toFixed(2)}s</div>
                   </div>
+                
+                  {/* new side‑by‑side CPU & Memory */}
+                  <div className="row mt-2">
+                    {message.metrics.cpuStats && (
+                      <div className="col">
+                        <strong>CPU:</strong>
+                        <ul className="ps-3 mb-0">
+                          {Object.entries(message.metrics.cpuStats).map(([name, stats]) => (
+                            <li key={name}>
+                              {name}: max {stats.max.toFixed(2)}%, avg {stats.avg.toFixed(2)}%
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                
+                    {message.metrics.memStats && (
+                      <div className="col">
+                        <strong>Memory:</strong>
+                        <ul className="ps-3 mb-0">
+                          {Object.entries(message.metrics.memStats).map(([name, stats]) => (
+                            <li key={name}>
+                              {name}: max {stats.max.toFixed(2)}MB, avg {stats.avg.toFixed(2)}MB
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                  </div>
+                </div>
+                
                 )}
               </div>
             </div>
           </div>
         ))}
-        
+
         {loading && (
           <div className="d-flex justify-content-start">
             <div className="card bg-light border-0" style={{ borderRadius: '1rem', padding: '0.75rem 1rem' }}>
@@ -195,7 +242,7 @@ export default function ChatInterface() {
             </div>
           </div>
         )}
-        
+
         <div ref={messagesEndRef} />
       </div>
 
@@ -219,7 +266,7 @@ export default function ChatInterface() {
               Send
             </button>
           </div>
-          
+
           <div className="mt-2 d-flex align-items-center gap-3">
             <label className="text-muted mb-0 small">
               Max tokens:

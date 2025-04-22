@@ -41,7 +41,7 @@ export default function StatusPanel() {
     };
 
     fetchData();
-    const interval = setInterval(fetchData, 10000);
+    const interval = setInterval(fetchData, 500);
     return () => clearInterval(interval);
   }, []);
 
