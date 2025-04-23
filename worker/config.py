@@ -1,0 +1,1 @@
+N_THREADS = 1 # CPU threads to use for each worker (availability depends on docker compose and your machine)

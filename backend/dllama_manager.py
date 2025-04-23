@@ -9,6 +9,7 @@ from typing import List, Dict, Any, AsyncGenerator
 
 logger = logging.getLogger(__name__)
 
+from config import WORKER_IPS, N_THREADS
 class DistributedLlamaManager:
     """Manager class for distributed-llama operations"""
     
@@ -61,9 +62,9 @@ class DistributedLlamaManager:
             "--max-seq-len", "2048",
             "--prompt", prompt,
             "--steps",  str(max_tokens),
-            "--nthreads", "1",
+            "--nthreads", str(N_THREADS),
             "--port", "9999",
-            "--workers", "172.20.0.11:9998", "172.20.0.12:9998", "172.20.0.13:9998"
+            "--workers", *WORKER_IPS
         ]
         
         logger.info(f"Starting inference: {' '.join(cmd)}")

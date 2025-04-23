@@ -1,8 +1,15 @@
 # Docker Distributed LLM
-This is a final project for cs598 Gen AI System
+This is a final project for UIUC CS598 FLA: Systems for GenAI, Spring 2025
+
 # Simulated Distributed Language Model System
 
-Containerized version of [b4rtaz's dllama repo](https://github.com/b4rtaz/distributed-llama). Made for CS598: FLA, Spring 2025. 
+We developed a containerized version of [b4rtaz's dllama repo](https://github.com/b4rtaz/distributed-llama), using Docker and Python (Flask). This version simulates distributed CPU inference on edge devices with a **configurable latency range**. Given this range, we simulate realistic edge device inference on a single device with randomized communication latency. 
+
+We provide a clean frontend user interface, accessible at http://localhost:3001 once the docker system has been setup. This interface enables prompting and measurement of response time metrics (TTFT, TTLT, simulated latency) as well as CPU/GPU metrics on a per-container basis. 
+
+TODO: Insert screenshot here of frontend.
+
+Our project was run on an M3 Macbook Pro with Docker Desktop 28.0.1 linux/arm64. The code in the main branch represents a system with 4 total nodes (the backend is always the "root" node) and using the Llama 3.2 1B Instruct Q40 model. 
 
 ## Prerequisites
 - Docker
@@ -10,45 +17,45 @@ Containerized version of [b4rtaz's dllama repo](https://github.com/b4rtaz/distri
 - Python3
 - C++ compiler
 
-**NOTE: You need to run the file `model_downloader.py` in `model-downloader/` to ensure there is a model included in `/models` so that it can be copied over to the volume of the root worker (backend). For reference, for the 1B model, the structure should be:
-
-`models/`
--- `llama3_2_1b_instruct_q40/...`
-
-This means the backend needs to have enough memory for the modelfile, tokenizer, etc. 
-
-Additionally, swapping models and number workers means you need to change the `config.py` variables in `backend/` (to point to the correct additional workers, model path, tokenizer path).
-
-To modify the ranges of randomized latency generation, we provide `LATENCY_MIN` and `LATENCY_MAX` in `backend/config.py`. 
-
-TODO: Move these notes to the setup / running instructions to be more clear. 
-
 ## Setup and Running Instructions
 
 1. Clone the repository:
    ```bash
    git clone <repository-url>
-   cd cs598-final-project
+   cd docker-distributed-llm
    ```
 
-2. Build and start the containers:
+2. Run the file `model_downloader.py` in `model_downloader/` to ensure there is a model included in `/models` so that it may be copied over to the volume of the root worker (backend). For reference, for the 1B model, the structure should be:
+
+`models/`
+-- `llama3_2_1b_instruct_q40/...`
+
+Make sure that the backend (root node) has enough memory for the model file, tokenizer, and for some of the workload during inference. This can be configured in the `docker-compose.yml`. 
+
+3. Modify configuration files as needed given your target inference setup. These files are located at `backend/config.py` and `worker/worker_wrapper.py`.
+
+To modify the ranges of randomized latency generation, we provide `LATENCY_MIN` and `LATENCY_MAX` in `backend/config.py`. 
+
+4. Build and start the containers:
    ```bash
    docker compose up --build
    ```
 
-3. To stop the services:
+5. Access the frontend at http://localhost:3001 to enter a prompt and begin inference. The max tokens can be modified to be any value from 1 -  1024. System status is observed in the right-hand panel. 
+
+To stop the services:
    ```bash
    docker compose down
    ```
 
-4. To view logs:
+To view logs:
    ```bash
    docker compose logs -f
    ```
 
-## Service Access
-- Frontend: http://localhost:3001
-<!-- - Backend API: http://localhost:8000 -->
+Logs are also easily viewable with Docker Desktop. 
+
+Additional instructions to contextualize the code and model downloader can be found at [b4rtaz's dllama repo](https://github.com/b4rtaz/distributed-llama).
 
 ## Troubleshooting
 
@@ -62,11 +69,15 @@ TODO: Move these notes to the setup / running instructions to be more clear.
   docker compose restart <service-name>
   ```
 
-## Development
+## Swapping Models / Configuration for Experiments
 
-To make changes during development:
-1. Modify the source code
-2. Rebuild the affected service:
-   ```bash
-   docker compose up --build <service-name>
-   ```
+To reproduce our experimental results, you can easily swap the model and number of workers (see step 3 for details on modifying relevant configuration files). 
+
+For example, to run an experiment with two total nodes and a different model:
+- Download the model files (weights and tokenizer) to `models/`
+- Modify the `docker-compose.yml` (comment out the unnecessary nodes)
+- Modify the `config.py` files in `backend/` and `worker/` according to the `docker-compose` - that is, ensure that the worker URLs, worker IPs, model files, and threads match up
+
+After any changes, you **must** `docker compose down` and `docker compose up --build` to rebuild the system. Then, you may access the frontend at http://localhost:3001 per usual and prompt. 
+
+For any questions, please contact (insert our emails here). s
