@@ -45,20 +45,6 @@ export default function StatusPanel() {
     return () => clearInterval(interval);
   }, []);
 
-  const handleRestartWorkers = async () => {
-    try {
-      setLoading(true);
-      await axios.post('/api/workers/restart');
-      setTimeout(() => {
-        setLoading(false);
-      }, 5000);
-    } catch (err) {
-      console.error('Error restarting workers:', err);
-      setError('Error restarting workers');
-      setLoading(false);
-    }
-  };
-
   const formatUptime = (seconds: number): string => {
     if (seconds < 60) return `${seconds.toFixed(0)}s`;
     if (seconds < 3600) return `${Math.floor(seconds / 60)}m ${Math.floor(seconds % 60)}s`;
@@ -140,24 +126,6 @@ export default function StatusPanel() {
           <div className="mb-4">
             <div className="d-flex justify-content-between align-items-center mb-2">
               <h3 className="small fw-medium text-muted">Workers</h3>
-              <button
-                onClick={handleRestartWorkers}
-                className={`btn btn-sm ${loading ? "btn-light" : "btn-outline-primary"}`}
-                disabled={loading}
-              >
-                {loading ? (
-                  <>
-                    <span
-                      className="spinner-border spinner-border-sm me-1"
-                      role="status"
-                      aria-hidden="true"
-                    />
-                    Restarting...
-                  </>
-                ) : (
-                  'Restart'
-                )}
-              </button>
             </div>
             
             <div className="d-flex flex-column gap-2">
