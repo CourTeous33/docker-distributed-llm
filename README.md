@@ -1,4 +1,5 @@
-# cs598-final-project
+# Docker Distributed LLM
+This is a final project for cs598 Gen AI System
 # Simulated Distributed Language Model System
 
 Containerized version of [b4rtaz's dllama repo](https://github.com/b4rtaz/distributed-llama). Made for CS598: FLA, Spring 2025. 
