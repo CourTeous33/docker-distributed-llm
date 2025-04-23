@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import axios from "axios";
+import ReactMarkdown from 'react-markdown';
 
 interface Message {
   id: string;
@@ -95,7 +96,14 @@ export default function ChatInterface() {
           const parsed = JSON.parse(data);
 
           if (parsed.text) {
-            fullResponse += parsed.text;
+            // Only add space if:
+            // 1. The new text doesn't start with punctuation
+            // 2. The current response doesn't end with a special markdown character
+            const needsSpace = 
+              !/^[.,!?;:'\)\]\}\-]/.test(parsed.text) && 
+              !/[\s\n#*_`\[\(]$/.test(fullResponse);
+            
+            fullResponse += needsSpace ? " " + parsed.text : parsed.text;
             metrics.tokenCount! += 1;
             setMessages(prev =>
               prev.map(msg =>
@@ -183,7 +191,13 @@ export default function ChatInterface() {
             >
               <div className="card-body">
                 <div style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
-                  {message.content}
+                  {message.type === 'assistant' ? (
+                    <ReactMarkdown>
+                      {message.content}
+                    </ReactMarkdown>
+                  ) : (
+                    message.content
+                  )}
                 </div>
 
                 {message.metrics && (
