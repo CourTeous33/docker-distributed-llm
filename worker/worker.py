@@ -1,8 +1,6 @@
-from flask import Flask, request, jsonify
-import time
+from flask import Flask, jsonify
 import os
 import logging
-import threading
 
 app = Flask(__name__)
 

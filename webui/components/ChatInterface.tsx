@@ -1,5 +1,4 @@
 import { useState, useRef, useEffect } from "react";
-import axios from "axios";
 import ReactMarkdown from 'react-markdown';
 
 interface Message {

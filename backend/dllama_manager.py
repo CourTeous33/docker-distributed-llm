@@ -1,6 +1,5 @@
 """Backend integration for distributed-llama management."""
 import os
-import json
 import asyncio
 import logging
 import httpx

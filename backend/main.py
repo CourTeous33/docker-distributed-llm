@@ -8,10 +8,8 @@ from fastapi import FastAPI, HTTPException, Request, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 import httpx
-import os
 import asyncio
 import json
-from typing import List, Dict, Any, Optional
 import logging
 import time
 import random
@@ -75,9 +73,7 @@ def start_worker_stats_collector():
     CPU & memory and stores them in app.state.latest_worker_stats.
     """
     container_names = [f"worker{i+1}" for i in range(len(WORKER_URLS))]#.append("backend")
-    # print(container_names)
     container_names.append("backend")
-    # print(container_names)
     # initialize the storage
     app.state.latest_worker_stats = {
         name: {"cpu_usage_percent": 0.0, "memory_usage_mb": 0.0}
@@ -90,7 +86,6 @@ def start_worker_stats_collector():
         while not app.state.stats_collection_stop_event.is_set():
             for name in container_names:
                 try:
-                    print("name: ", name)
                     c = client.containers.get(name)
                     stats = c.stats(stream=False)
 
@@ -265,7 +260,6 @@ async def generate_text(
 
                             # Add some delay to simulate network when we yield the text up to the frontend
                             delay = random.uniform(LATENCY_MIN, LATENCY_MAX) # defined in config.py for simpler modification
-                            # logger.info(f"Simulating delay: {delay:.2f}s")
                             await asyncio.sleep(delay)
                             total_delay += delay 
 
