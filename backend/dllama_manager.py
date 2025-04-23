@@ -57,7 +57,7 @@ class DistributedLlamaManager:
             "/app/distributed-llama/dllama", "inference",
             "--model", self.model_path,
             "--tokenizer", self.tokenizer_path,
-            "--buffer-float-type", "q80",
+            "--buffer-float-type", "f32",
             "--max-seq-len", "2048",
             "--prompt", prompt,
             "--steps",  str(max_tokens),
