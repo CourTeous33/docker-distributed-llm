@@ -7,6 +7,11 @@ WORKER_URLS = [
     "http://worker2:5000",
     "http://worker3:5000"
 ]
+# IPs are passed directly to the dllama_mananger.py to ensure running the dllama command works
+WORKER_IPS = ["172.20.0.11:9998", "172.20.0.12:9998", "172.20.0.13:9998"]
 
-LATENCY_MIN = 0.01 # 10 milliseconds
-LATENCY_MAX = 0.05 # 50 milliseconds
+# Estimated range to simulate 
+LATENCY_MIN = 0.01 # ex: 0.01 = 10 milliseconds
+LATENCY_MAX = 0.05 # ex: 0.05 = 50 milliseconds
+
+N_THREADS = 1 # CPU threads to use for the root node (availability depends on docker compose and your machine)

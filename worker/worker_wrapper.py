@@ -11,6 +11,7 @@ import logging
 import signal
 import sys
 from flask import Flask, jsonify
+from config import N_THREADS
 
 # Configure logging
 logging.basicConfig(
@@ -34,7 +35,7 @@ def start_dllama_worker():
         "/dllama-app/distributed-llama/dllama", 
         "worker",
         "--port", "9998",
-        "--nthreads", "1"
+        "--nthreads", str(N_THREADS)
     ]
     
     logger.info(f"Starting worker: {' '.join(cmd)}")
