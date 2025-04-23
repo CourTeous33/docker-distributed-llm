@@ -86,7 +86,7 @@ class DistributedLlamaManager:
             if self._is_debug_output(decoded):
                 continue
 
-            yield f"data: {json.dumps({'text': decoded})}\n\n"
+            yield f"data: {decoded}"
 
         yield "data: [DONE]\n\n"
 
