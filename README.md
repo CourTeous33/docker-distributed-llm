@@ -7,7 +7,7 @@ We developed a containerized version of [b4rtaz's dllama repo](https://github.co
 
 We provide a clean frontend user interface, accessible at http://localhost:3001 once the docker system has been setup. This interface enables prompting and measurement of response time metrics (TTFT, TTLT, simulated latency) as well as CPU/GPU metrics on a per-container basis. 
 
-TODO: Insert screenshot here of frontend.
+![Frontend Image Example](frontend-example.png)
 
 Our project was run on an M3 Macbook Pro with Docker Desktop 28.0.1 linux/arm64. The code in the main branch represents a system with 4 total nodes (the backend is always the "root" node) and using the Llama 3.2 1B Instruct Q40 model. 
 
@@ -27,8 +27,10 @@ Our project was run on an M3 Macbook Pro with Docker Desktop 28.0.1 linux/arm64.
 
 2. Run the file `model_downloader.py` in `model_downloader/` to ensure there is a model included in `/models` so that it may be copied over to the volume of the root worker (backend). For reference, for the 1B model, the structure should be:
 
-`models/`
--- `llama3_2_1b_instruct_q40/...`
+```
+models/
+-- llama3_2_1b_instruct_q40/... (tokenizer and model file here)
+```
 
 Make sure that the backend (root node) has enough memory for the model file, tokenizer, and for some of the workload during inference. This can be configured in the `docker-compose.yml`. 
 
