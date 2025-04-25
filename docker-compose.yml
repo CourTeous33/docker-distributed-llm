@@ -12,8 +12,8 @@ services:
       - ./models:/models
       - /var/run/docker.sock:/var/run/docker.sock
     environment:
-      - WORKER_URLS=http://worker1:5000,http://worker2:5000,http://worker3:5000
-      - DLLAMA_WORKERS=worker1:9998,worker2:9998,worker3:9998
+      - WORKER_URLS=http://worker1:5000
+      - DLLAMA_WORKERS=worker1:9998
     ports:
       - "5006:5000"
     expose:
@@ -32,11 +32,7 @@ services:
     depends_on:
       worker1:
         condition: service_healthy
-      worker2:
-        condition: service_healthy
-      worker3:
-        condition: service_healthy
-
+    
   worker1:
     build:
       context: ./worker
@@ -67,65 +63,65 @@ services:
       timeout: 3s
       retries: 10
 
-  worker2:
-    build:
-      context: ./worker
-      dockerfile: Dockerfile  
-    container_name: worker2
-    restart: unless-stopped
-    environment:
-      - WORKER_ID=2
-    ports:
-      - "5002:5000"
-      - "9999:9998"
-    expose:
-      - "5000"
-      - "9998"
-    cap_add:
-      - NET_ADMIN
-    networks:
-      app-network:
-        ipv4_address: 172.20.0.12
-    deploy:
-      resources:
-        limits:
-          cpus: '1.0'
-          memory: 2G
-    healthcheck:
-      test: curl --fail http://localhost:5000/status || exit 1
-      interval: 5s
-      timeout: 3s
-      retries: 10
+  # worker2:
+  #   build:
+  #     context: ./worker
+  #     dockerfile: Dockerfile  
+  #   container_name: worker2
+  #   restart: unless-stopped
+  #   environment:
+  #     - WORKER_ID=2
+  #   ports:
+  #     - "5002:5000"
+  #     - "9999:9998"
+  #   expose:
+  #     - "5000"
+  #     - "9998"
+  #   cap_add:
+  #     - NET_ADMIN
+  #   networks:
+  #     app-network:
+  #       ipv4_address: 172.20.0.12
+  #   deploy:
+  #     resources:
+  #       limits:
+  #         cpus: '1.0'
+  #         memory: 2G
+  #   healthcheck:
+  #     test: curl --fail http://localhost:5000/status || exit 1
+  #     interval: 5s
+  #     timeout: 3s
+  #     retries: 10
 
-  worker3:
-    build:
-      context: ./worker
-      dockerfile: Dockerfile
-    container_name: worker3
-    restart: unless-stopped
-    environment:
-      - WORKER_ID=3
-    ports:
-      - "5003:5000"
-      - "10000:9998"
-    expose:
-      - "5000"
-      - "9998"
-    cap_add:
-      - NET_ADMIN
-    networks:
-      app-network:
-        ipv4_address: 172.20.0.13
-    deploy:
-      resources:
-        limits:
-          cpus: '1.0'
-          memory: 2G
-    healthcheck:
-      test: curl --fail http://localhost:5000/status || exit 1
-      interval: 5s
-      timeout: 3s
-      retries: 10
+  # worker3:
+  #   build:
+  #     context: ./worker
+  #     dockerfile: Dockerfile
+  #   container_name: worker3
+  #   restart: unless-stopped
+  #   environment:
+  #     - WORKER_ID=3
+  #   ports:
+  #     - "5003:5000"
+  #     - "10000:9998"
+  #   expose:
+  #     - "5000"
+  #     - "9998"
+  #   cap_add:
+  #     - NET_ADMIN
+  #   networks:
+  #     app-network:
+  #       ipv4_address: 172.20.0.13
+  #   deploy:
+  #     resources:
+  #       limits:
+  #         cpus: '1.0'
+  #         memory: 2G
+  #   healthcheck:
+  #     test: curl --fail http://localhost:5000/status || exit 1
+  #     interval: 5s
+  #     timeout: 3s
+  #     retries: 10
   
   # worker4:
   #   build:
