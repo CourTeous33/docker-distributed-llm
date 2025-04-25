@@ -174,7 +174,7 @@ def start_docker_monitoring():
     def monitor():
         logger.info("Starting Docker stats monitoring")
         client = docker.from_env()
-        containers = ["backend", "worker1", "worker2", "worker3"]
+        containers = ["backend"]
         app.state.containers = containers
         app.state.cpu_stats = {name: [] for name in containers}
         app.state.mem_stats = {name: [] for name in containers}

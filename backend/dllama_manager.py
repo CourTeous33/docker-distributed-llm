@@ -62,8 +62,7 @@ class DistributedLlamaManager:
             "--prompt", prompt,
             "--steps",  str(max_tokens),
             "--nthreads", str(N_THREADS),
-            "--port", "9999",
-            "--workers", *WORKER_IPS
+            "--port", "9999"
         ]
         
         logger.info(f"Starting inference: {' '.join(cmd)}")

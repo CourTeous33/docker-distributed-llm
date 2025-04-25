@@ -1,3 +1,6 @@
+# 1b-q40-1-1
+This branch, `1b-q40-1-1`, is made for the experiments with 1B Q40 model, 1 node, 1 thread. 
+
 # Docker Distributed LLM
 This is a final project for UIUC CS598 FLA: Systems for GenAI, Spring 2025
 
