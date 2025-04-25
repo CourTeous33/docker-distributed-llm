@@ -1,6 +1,8 @@
 # Docker Distributed LLM
 This is a final project for UIUC CS598 FLA: Systems for GenAI, Spring 2025
 
+Note: `main` branch is setup to support an experiment with the Llama3.2 1B Q40 model with n=4 total workers and 1 CPU thread per worker. Additional experiments can be run on different branches with some minimal extra setup.
+
 # Simulated Distributed Language Model System
 
 We developed a containerized version of [b4rtaz's dllama repo](https://github.com/b4rtaz/distributed-llama), using Docker and Python (Flask). This version simulates distributed CPU inference on edge devices with a **configurable latency range**. Given this range, we simulate realistic edge device inference on a single device with randomized communication latency. 
@@ -73,13 +75,22 @@ Additional instructions to contextualize the code and model downloader can be fo
 
 ## Swapping Models / Configuration for Experiments
 
-To reproduce our experimental results, you can easily swap the model and number of workers (see step 3 for details on modifying relevant configuration files). 
+To reproduce our experimental results, you can easily swap the model and number of workers under our architecture (see step 3 for details on modifying relevant configuration files). 
 
-For example, to run an experiment with two total nodes and a different model:
-- Download the model files (weights and tokenizer) to `models/`
-- Modify the `docker-compose.yml` (comment out the unnecessary nodes)
-- Modify the `config.py` files in `backend/` and `worker/` according to the `docker-compose` - that is, ensure that the worker URLs, worker IPs, model files, and threads match up
+For convenience, we provide a set of branches that are used to run our experiments. The naming convention of branches is `modelsize-quant-nodes-threads`. Folowing this, we provide the following branches: 
+- 1b-q40-1-1 
+- 1b-q40-2-1 
+- 1b-q40-8-1 
+- 1b-q40-4-2 
+- 1b-q40-4-3
+
+Note that under this convention, `main` would be equivalent to a branch named `1b-q40-4-1`.
+
+For context on how we made these branches, assuming a new experiment with two total nodes and a different model, you would:
+1. Download the model files (weights and tokenizer) to `models/`
+2.  Modify the `docker-compose.yml` (comment out the unnecessary nodes)
+3. Modify the `config.py` files in `backend/` and `worker/` according to the `docker-compose` - that is, ensure that the worker URLs, worker IPs, model files, and threads match up
 
 After any changes, you **must** `docker compose down` and `docker compose up --build` to rebuild the system. Then, you may access the frontend at http://localhost:3001 per usual and prompt. 
 
-For any questions, please contact (insert our emails here). s
+For any questions, please contact (insert our emails here).

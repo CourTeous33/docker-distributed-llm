@@ -126,46 +126,6 @@ services:
       interval: 5s
       timeout: 3s
       retries: 10
-  
-  # worker4:
-  #   build:
-  #     context: ./worker
-  #     dockerfile: Dockerfile
-  #   container_name: worker4
-  #   restart: unless-stopped
-  #   environment:
-  #     - WORKER_ID=4
-  #   ports:
-  #     - "5004:5000"
-  #     - "10001:9998"
-  #   expose:
-  #     - "5000"
-  #     - "9998"
-  #   cap_add:
-  #     - NET_ADMIN
-  #   networks:
-  #     app-network:
-  #       ipv4_address: 172.20.0.14
-
-  # worker5:
-  #   build:
-  #     context: ./worker
-  #     dockerfile: Dockerfile
-  #   container_name: worker5
-  #   restart: unless-stopped
-  #   environment:
-  #     - WORKER_ID=5
-  #   ports:
-  #     - "5005:5000"
-  #     - "10002:9998"
-  #   expose:
-  #     - "5000"
-  #     - "9998"
-  #   cap_add:
-  #     - NET_ADMIN
-  #   networks:
-  #     app-network:
-  #       ipv4_address: 172.20.0.15
 
   webui:
     build:
