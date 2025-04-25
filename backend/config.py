@@ -5,13 +5,25 @@ TOKENIZER_PATH = "/models/llama3_2_1b_instruct_q40/dllama_tokenizer_llama3_2_1b_
 WORKER_URLS = [
     "http://worker1:5000",
     "http://worker2:5000",
-    "http://worker3:5000"
+    "http://worker3:5000",
+    "http://worker4:5000",
+    "http://worker5:5000",
+    "http://worker6:5000",
+    "http://worker7:5000"
 ]
 # IPs are passed directly to the dllama_mananger.py to ensure running the dllama command works
-WORKER_IPS = ["172.20.0.11:9998", "172.20.0.12:9998", "172.20.0.13:9998"]
+WORKER_IPS = [
+    "172.20.0.11:9998", 
+    "172.20.0.12:9998", 
+    "172.20.0.13:9998", 
+    "172.20.0.14:9998", 
+    "172.20.0.15:9998", 
+    "172.20.0.16:9998", 
+    "172.20.0.17:9998", 
+]
 
 # Estimated range to simulate 
-LATENCY_MIN = 0.01 # ex: 0.01 = 10 milliseconds
-LATENCY_MAX = 0.05 # ex: 0.05 = 50 milliseconds
+LATENCY_MIN = 0.08 # ex: 0.01 = 10 milliseconds
+LATENCY_MAX = 0.16 # ex: 0.05 = 50 milliseconds
 
 N_THREADS = 1 # CPU threads to use for the root node (availability depends on docker compose and your machine)
