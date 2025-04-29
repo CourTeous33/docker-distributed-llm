@@ -67,51 +67,71 @@ class SystemStatus(BaseModel):
     tokenizer_path: str
 
 
+CONTAINER_NAMES = [f"worker{i+1}" for i in range(len(WORKER_URLS))]#.append("backend")
+CONTAINER_NAMES.append("backend")
+
 def start_worker_stats_collector():
     """
     Spawn a daemon thread that every 1s samples each worker container's
     CPU & memory and stores them in app.state.latest_worker_stats.
+
+    Additionally stores long-term stats in app.state.cpu_stats and app.state.mem_stats
     """
-    container_names = [f"worker{i+1}" for i in range(len(WORKER_URLS))]#.append("backend")
-    container_names.append("backend")
     # initialize the storage
     app.state.latest_worker_stats = {
         name: {"cpu_usage_percent": 0.0, "memory_usage_mb": 0.0}
-        for name in container_names
+        for name in CONTAINER_NAMES
     }
+    app.state.cpu_stats = {name: [] for name in CONTAINER_NAMES}
+    app.state.mem_stats = {name: [] for name in CONTAINER_NAMES}
 
     def _collector():
         # we can reuse the global docker_client if you prefer
         client = docker.from_env()
         while not app.state.stats_collection_stop_event.is_set():
-            for name in container_names:
+            for name in CONTAINER_NAMES:
                 try:
                     c = client.containers.get(name)
                     stats = c.stats(stream=False)
 
-                    # CPU % calc
-                    cpu_stats = stats["cpu_stats"]
-                    precpu_stats = stats["precpu_stats"]
-                    cpu_delta = cpu_stats["cpu_usage"]["total_usage"] - precpu_stats["cpu_usage"]["total_usage"]
-                    system_delta = cpu_stats["system_cpu_usage"] - precpu_stats["system_cpu_usage"]
+                    # CPU
+                    cpu_stats = stats['cpu_stats']
+                    precpu_stats = stats['precpu_stats']
+                    cpu_delta = cpu_stats['cpu_usage']['total_usage'] - precpu_stats['cpu_usage']['total_usage']
+                    system_delta = cpu_stats['system_cpu_usage'] - precpu_stats['system_cpu_usage']
+                    num_cpus = cpu_stats['online_cpus'] # for MasOS since it uses LinuxVM 
+                    
+                     # Get container-specific CPU allocation
+                    container_config = c.attrs['HostConfig']
+                    cpu_period = container_config.get('CpuPeriod', 100000)  # Default 100ms period
+                    cpu_quota = container_config.get('CpuQuota')
+
+                    if cpu_quota and cpu_period and cpu_quota > 0:
+                        num_cpus = cpu_quota / cpu_period  # ex: 100000/100000 = 1.0 for 4-node workers
                     
                     cpu_percent = 0.0
                     if system_delta > 0 and cpu_delta > 0:
-                        cpu_cores = len(cpu_stats["cpu_usage"].get("percpu_usage", [1]))
-                        cpu_percent = (cpu_delta / system_delta) * cpu_cores * 100
+                        cpu_percent = (cpu_delta / system_delta) * num_cpus * 100
 
                     # Mem usage in MB
-                    mem_usage = stats["memory_stats"].get("usage", 0)
-                    mem_mb = mem_usage / (1024**2)
+                    memory_stats = stats.get('memory_stats', {})
+                    mem_bytes_used = memory_stats.get('usage', 0)
+                    mem_mb = mem_bytes_used / (1024 ** 2)
 
-                    # store
+                    # store latest worker stats
                     app.state.latest_worker_stats[name] = {
                         "cpu_usage_percent": cpu_percent,
                         "memory_usage_mb": mem_mb
                     }
+
+                    # store long-term stats for eventual summary
+                    app.state.cpu_stats[name].append(cpu_percent)
+                    app.state.mem_stats[name].append(mem_mb)
+
                 except Exception as e:
                     logger.error(f"worker‐stats collector error for {name}: {e}")
-            time.sleep(0.1)
+            
+            asyncio.sleep(1)
 
     t = threading.Thread(target=_collector, daemon=True)
     t.start()
@@ -169,67 +189,6 @@ async def get_system_status():
     except Exception as e:
         raise HTTPException(500, str(e))
 
-def start_docker_monitoring():
-    """Start Docker stats collection in a background thread"""
-    def monitor():
-        logger.info("Starting Docker stats monitoring")
-        client = docker.from_env()
-        containers = ["backend", "worker1"]
-        app.state.containers = containers
-        app.state.cpu_stats = {name: [] for name in containers}
-        app.state.mem_stats = {name: [] for name in containers}
-        
-        while not app.state.monitoring_stopped.is_set():
-            try:
-                for name in app.state.containers:
-                    container = client.containers.get(name)
-                    stats = container.stats(stream=False)
-                    
-                    # CPU calculation
-                    cpu_stats = stats["cpu_stats"]
-                    precpu_stats = stats["precpu_stats"]
-                    cpu_delta = cpu_stats["cpu_usage"]["total_usage"] - precpu_stats["cpu_usage"]["total_usage"]
-                    system_delta = cpu_stats["system_cpu_usage"] - precpu_stats["system_cpu_usage"]
-                    
-                    cpu_percent = 0.0
-                    if system_delta > 0 and cpu_delta > 0:
-                        cpu_cores = len(cpu_stats["cpu_usage"].get("percpu_usage", [1]))
-                        cpu_percent = (cpu_delta / system_delta) * cpu_cores * 100
-                    
-                    # Memory calculation
-                    # mem_stats = stats["memory_stats"]
-                    # mem_usage = mem_stats.get("usage", 0)
-                    # mem_limit = mem_stats.get("limit", 1)
-                    # mem_percent = (mem_usage / mem_limit) * 100 if mem_limit else 0
-                    mem_usage = stats["memory_stats"].get("usage", 0)
-                    mem_mb = mem_usage / (1024**2)
-                    
-                    app.state.cpu_stats[name].append(cpu_percent)
-                    app.state.mem_stats[name].append(mem_mb)
-
-                    # logger.info(
-                    #     f"Docker stats [{name}] "
-                    #     f"CPU: {cpu_percent:.2f}% | "
-                    #     f"Mem: {mem_usage/1024/1024:.2f}MB ({mem_percent:.2f}%)"
-                    # )
-
-                    logger.info(
-                        f"Docker stats [{name}] "
-                        f"CPU: {cpu_percent:.2f}% | "
-                        f"Mem: {mem_usage/1024/1024:.2f}MB"
-                    )
-                
-                time.sleep(0.1)  # Collect every 100ms
-                
-            except Exception as e:
-                logger.error(f"Docker monitoring error: {str(e)}")
-                break
-
-    # Start monitoring thread
-    app.state.monitoring_stopped = threading.Event()
-    monitor_thread = threading.Thread(target=monitor, daemon=True)
-    monitor_thread.start()
-
 # Stream text generation up and handle simulated network
 @app.get("/stream")
 async def generate_text(
@@ -245,7 +204,9 @@ async def generate_text(
         ttft = 0.0
 
         try:
-            start_docker_monitoring()
+            # Reset the application monitoring storage 
+            app.state.cpu_stats = {name: [] for name in CONTAINER_NAMES}
+            app.state.mem_stats = {name: [] for name in CONTAINER_NAMES}
             async for line in dllama_manager.generate_text(prompt=prompt, max_tokens=max_tokens):
                 if "Pred" in line:
                     parts = line.split("|")
@@ -266,13 +227,10 @@ async def generate_text(
                             logger.debug(f"Yielding token: {predicted_text}")
                             yield f"data: {json.dumps({'text': predicted_text})}\n\n"
             
-            # Stop monitoring after generation completes
-            app.state.monitoring_stopped.set()  
-
             # compute max/avg CPU & mem for each container
             cpu_summary = {}
             mem_summary = {}
-            for name in app.state.containers:
+            for name in CONTAINER_NAMES:
                 cpu_samples = app.state.cpu_stats.get(name, [])
                 mem_samples = app.state.mem_stats.get(name, [])
                 cpu_summary[name] = {
@@ -382,7 +340,6 @@ async def startup_event():
 async def shutdown_event():
     """Shutdown event handler"""
     logger.info("Shutting down the backend service")
-    app.state.monitoring_stopped.set()
     app.state.stats_collection_stop_event.set()
     if app.state.docker_client:
         app.state.docker_client.close()
