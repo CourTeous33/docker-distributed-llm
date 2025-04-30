@@ -1,7 +1,7 @@
 # Docker Distributed LLM
 This is a final project for UIUC CS598 FLA: Systems for GenAI, Spring 2025
 
-Note: `main` branch is setup to support an experiment with the Llama3.2 1B Q40 model with n=4 total workers and 1 CPU thread per worker. Additional experiments can be run on different branches with some minimal extra setup.
+Note: `main` branch is setup to support an experiment with the Llama3.2 1B Q40 model with n=4 total workers and 1 CPU thread per worker. Additional experiments can be run on different branches with some minimal extra setup. See the bottom of this README for more details.
 
 # Simulated Distributed Language Model System
 
@@ -83,8 +83,20 @@ For convenience, we provide a set of branches that are used to run our experimen
 - 1b-q40-8-1 
 - 1b-q40-4-2 
 - 1b-q40-4-3
+- 1b-f32-1-1
+- 1b-f32-2-1
+- 1b-f32-8-1
+- 1b-f32-4-2
+- 1b-f32-4-3
+- 3b-q40-1-1
+- 3b-q40-2-1
+- 3b-q40-8-1
+- 3b-q40-1-1
+- 3b-q40-4-1
+- 3b-q40-4-2
+- 3b-q40-4-3
 
-Note that under this convention, `main` would be equivalent to a branch named `1b-q40-4-1`.
+Note that under this convention, `main` would be equivalent to a branch named `1b-q40-4-1`. For the F32 branches, we had to convert original F32 Llama 3.2 weights/tokenizer using the converter provided by the original dllama repo. For convenience of reproduction, we provide the following Google Drive folder to the raw model files/weights, accessible to @illinois.edu domains: https://drive.google.com/drive/folders/1G0McEWNwNiwAkHzGOzxorPRK4p7THlNY?usp=sharing. 
 
 For context on how we made these branches, assuming a new experiment with two total nodes and a different model, you would:
 1. Download the model files (weights and tokenizer) to `models/`
