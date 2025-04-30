@@ -1,3 +1,6 @@
+# 3b-q40-4-1
+This branch, `3b-q40-4-1`, is made for the experiments with 3B Q40 model, 4 node(s), 1 thread(s) per node. 
+
 # Docker Distributed LLM
 This is a final project for UIUC CS598 FLA: Systems for GenAI, Spring 2025
 
