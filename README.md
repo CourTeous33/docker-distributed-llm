@@ -1,5 +1,5 @@
-# 1b-q40-8-1
-This branch, `1b-q40-8-1`, is made for the experiments with 1B Q40 model, 8 node(s), 1 thread(s) per node. 
+# 1b-f32-8-1
+This branch, `1b-f32-8-1`, is made for the experiments with 1B F32 model, 8 node(s), 1 thread(s) per node. 
 
 # Docker Distributed LLM
 This is a final project for UIUC CS598 FLA: Systems for GenAI, Spring 2025
