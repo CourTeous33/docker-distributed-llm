@@ -7,7 +7,6 @@ interface WorkerStatus {
   is_available: boolean;
   memory_usage_mb?: number;
   cpu_usage_percent?: number;
-  uptime_seconds?: number;
 }
 
 interface SystemInfo {
@@ -114,9 +113,10 @@ export default function StatusPanel() {
                       {systemInfo.available_workers}/{systemInfo.total_workers}
                     </span>
                   </div>
-                  <div className="text-truncate small text-muted" title={systemInfo.model_path}>
-                    Model: {systemInfo.model_path.split('/').pop()}
-                  </div>
+                    <div className="small text-muted">
+                    <span>Model:</span>
+                    <div style={{ fontSize: 12 }}>{systemInfo.model_path}</div>
+                    </div>
                 </div>
               </div>
             </div>
@@ -151,9 +151,6 @@ export default function StatusPanel() {
                         </div>
                         <div>
                           CPU: {worker.cpu_usage_percent?.toFixed(1)}%
-                        </div>
-                        <div className="w-100">
-                          Uptime: {formatUptime(worker.uptime_seconds || 0)}
                         </div>
                       </div>
                     )}
