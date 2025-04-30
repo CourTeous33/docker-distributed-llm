@@ -113,8 +113,9 @@ export default function StatusPanel() {
                       {systemInfo.available_workers}/{systemInfo.total_workers}
                     </span>
                   </div>
-                  <div className="text-truncate small text-muted" title={systemInfo.model_path}>
-                    Model: {systemInfo.model_path.split('/').pop()}
+                  <div className="small text-muted">
+                    <span>Model:</span>
+                    <div style={{ fontSize: 12 }}>{systemInfo.model_path}</div>
                   </div>
                 </div>
               </div>
