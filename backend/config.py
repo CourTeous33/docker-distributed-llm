@@ -1,6 +1,6 @@
 # Depends on what model you downloaded using the `model-downloader`
-MODEL_PATH = "/models/llama3_2_1b_instruct_q40/dllama_model_llama3_2_1b_instruct_q40.m"
-TOKENIZER_PATH = "/models/llama3_2_1b_instruct_q40/dllama_tokenizer_llama3_2_1b_instruct_q40.t"
+MODEL_PATH = "/models/llama3_2_3b_instruct_q40/dllama_model_llama3_2_3b_instruct_q40.m"
+TOKENIZER_PATH = "/models/llama3_2_3b_instruct_q40/dllama_tokenizer_llama3_2_3b_instruct_q40.t"
 # Depends on the docker-compose structure and how many workers you want to support (note the backend itself is also a worker, so there should be 2^N - 1 workers)
 WORKER_URLS = [
     "http://worker1:5000",
