@@ -82,7 +82,6 @@ class DistributedLlamaManager:
                 break
 
             decoded = line.decode().strip()
-            logger.info(f"Raw output: {decoded}")
             if self._is_debug_output(decoded):
                 continue
 
