@@ -23,7 +23,7 @@ import threading
 
 # Configure logging
 logging.basicConfig(
-    level=logging.ERROR,
+    level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger(__name__)
@@ -208,6 +208,7 @@ async def generate_text(
             app.state.cpu_stats = {name: [] for name in CONTAINER_NAMES}
             app.state.mem_stats = {name: [] for name in CONTAINER_NAMES}
             async for line in dllama_manager.generate_text(prompt=prompt, max_tokens=max_tokens):
+                logger.info(f"Received line: {line}")
                 if "Pred" in line:
                     parts = line.split("|")
                     if len(parts) >= 2:

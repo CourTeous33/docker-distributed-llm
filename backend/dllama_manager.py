@@ -52,12 +52,12 @@ class DistributedLlamaManager:
             await self._cleanup_process(process)
 
     async def _start_inference_process(self, prompt: str, max_tokens: int) -> asyncio.subprocess.Process:
-        """Start a new inference process per request."""
+        """Start a new inference process per request."""        
         cmd = [
             "/app/distributed-llama/dllama", "inference",
             "--model", self.model_path,
             "--tokenizer", self.tokenizer_path,
-            "--buffer-float-type", "q80",
+            "--buffer-float-type", "f32",
             "--max-seq-len", "2048",
             "--prompt", prompt,
             "--steps",  str(max_tokens),
@@ -82,6 +82,7 @@ class DistributedLlamaManager:
                 break
 
             decoded = line.decode().strip()
+            logger.info(f"Raw output: {decoded}")
             if self._is_debug_output(decoded):
                 continue
 

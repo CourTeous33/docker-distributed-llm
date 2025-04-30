@@ -75,6 +75,7 @@ export default function ChatInterface() {
       );
 
       eventSource.onmessage = (event) => {
+        console.log(event.data);
         const data = event.data;
         if (data === "[DONE]") {
           metrics.generationTime = (Date.now() - startTime) / 1000;
