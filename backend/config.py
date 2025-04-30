@@ -11,7 +11,7 @@ WORKER_URLS = [
 WORKER_IPS = ["172.20.0.11:9998", "172.20.0.12:9998", "172.20.0.13:9998"]
 
 # Estimated range to simulate 
-LATENCY_MIN = 0.01 # ex: 0.01 = 10 milliseconds
-LATENCY_MAX = 0.05 # ex: 0.05 = 50 milliseconds
+LATENCY_MIN = 0.06 # ex: 0.01 = 10 milliseconds
+LATENCY_MAX = 0.12 # ex: 0.05 = 50 milliseconds
 
 N_THREADS = 1 # CPU threads to use for the root node (availability depends on docker compose and your machine)
