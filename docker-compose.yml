@@ -28,7 +28,7 @@ services:
       resources:
         limits:
           cpus: '2.0'
-          memory: 4G
+          memory: 6G
     depends_on:
       worker1:
         condition: service_healthy
@@ -56,7 +56,7 @@ services:
       resources:
         limits:
           cpus: '1.0'
-          memory: 2G
+          memory: 4G
     healthcheck:
       test: curl --fail http://localhost:5000/status || exit 1
       interval: 5s
