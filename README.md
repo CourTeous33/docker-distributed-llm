@@ -1,7 +1,7 @@
 # Docker Distributed LLM
 This is a final project for UIUC CS598 FLA: Systems for GenAI, Spring 2025
 
-Note: `main` branch is setup to support an experiment with the Llama3.2 1B Q40 model with n=4 total workers and 1 CPU thread per worker. Additional experiments can be run on different branches with some minimal extra setup. See the bottom of this README for more details.
+Note: `main` branch is setup to support an experiment with the Llama3.2 1B Q40 model with n=4 total workers and 1 CPU thread per worker. Additional experiments can be run on different branches with some minimal extra setup. See the bottom of this README for more details. Also, the metrics displayed after successful prompt response are akin to the output of `docker stats` but via the Python SDK. As such, CPU %s may be >100 on some branches (that is, upper limit is N * #threads dedicated to the container). 
 
 # Simulated Distributed Language Model System
 
@@ -62,11 +62,21 @@ Logs are also easily viewable with Docker Desktop.
 Additional instructions to contextualize the code and model downloader can be found at [b4rtaz's dllama repo](https://github.com/b4rtaz/distributed-llama).
 
 ## Troubleshooting
-
+When something goes wrong and it never completed a prompt:
+- An initial guess is adding more memory to the system via docker-compose (may vary by device) - our group generally all used Macbook Pro M3 with 18GB+ RAM for context, so we have not sufficiently tested on other devices
 - If you encounter permission issues, try running the commands with sudo
-- To rebuild a specific service:
+
+When something goes wrong but it ran correctly at least once: 
+- Workers are more prone to crashing after running multiple prompts consecutively - this is likely due to local system constraints. The fix is simple - just go to your terminal where you are running the repository and restart using `docker compose up` and `docker compose down`
+- If anything goes wrong while swapping between any of the branches (e.g., from main to an F32 or 3B version) try to remove all docker containers, images, and volumes from the local system using Docker Desktop and then `docker compose up --build` again to restart 
+
+- To rebuild fully (when swapping branches), in the root folder:
   ```bash
-  docker compose build <service-name>
+  docker compose up --build
+  ```
+- To take down (if a worker crashes or you want to restart):
+  ```bash
+  docker compose down
   ```
 - To restart a specific service:
   ```bash
