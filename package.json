@@ -1,8 +1,0 @@
-{
-  "dependencies": {
-    "@types/node": "^22.13.14",
-    "@types/react": "^19.0.12",
-    "axios": "^1.8.4",
-    "react": "^19.1.0"
-  }
-}
