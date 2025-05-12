@@ -115,4 +115,5 @@ For context on how we made these branches, assuming a new experiment with two to
 
 After any changes, you **must** `docker compose down` and `docker compose up --build` to rebuild the system. Then, you may access the frontend at http://localhost:3001 per usual and prompt. 
 
-For any questions, please contact (insert our emails here).
+For any questions, please contact:
+{echen48, wendi2, pokkali2, cy5, keshav6}@illinois.edu
